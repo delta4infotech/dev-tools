@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  basePath: '/dev-tools',
+  assetPrefix: '/dev-tools',
+}
+
 
 export default nextConfig;
