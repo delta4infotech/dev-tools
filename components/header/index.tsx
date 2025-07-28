@@ -4,7 +4,7 @@ import Link from "next/link";
 function LogoSection() {
   return (
     <Link href="/">
-      <img src="/delta-logo.svg" className="h-[32px] sm:h-[40px]" alt="Delta4 Logo" width={150} height={150} />
+      <img src="/dev-tools/delta-logo.svg" className="h-[32px] sm:h-[40px]" alt="Delta4 Logo" width={150} height={150} />
     </Link>
   );
 }

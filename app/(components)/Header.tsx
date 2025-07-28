@@ -8,7 +8,7 @@ export default function Header() {
             <div className="flex justify-center items-center mb-4 sm:mb-6">
                 <div className="p-3 sm:p-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                     <Image
-                        src="/delta4-icon-footer.svg"
+                        src="/dev-tools/delta4-icon-footer.svg"
                         width={32}
                         height={32}
                         alt="Delta4 Logo"

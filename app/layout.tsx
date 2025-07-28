@@ -36,9 +36,9 @@ export const metadata: Metadata = {
   creator: 'Delta4',
   publisher: 'Delta4',
   icons: {
-    icon: '/delta4-icon-footer.svg',
-    shortcut: '/delta4-icon-footer.svg',
-    apple: '/delta4-icon-footer.svg',
+    icon: '/dev-tools/delta4-icon-footer.svg',
+    shortcut: '/dev-tools/delta4-icon-footer.svg',
+    apple: '/dev-tools/delta4-icon-footer.svg',
   },
   robots: {
     index: true,

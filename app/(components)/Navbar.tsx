@@ -11,7 +11,7 @@ export default function Navbar() {
                         <Link href="/">
                             <div className="flex items-center justify-center gap-2">
                                 <Image
-                                    src="/delta4-icon-footer.svg"
+                                    src="/dev-tools/delta4-icon-footer.svg"
                                     width={30}
                                     height={30}
                                     alt="Delta4 Logo"

@@ -76,7 +76,7 @@ const CompanySection = () => (
   <div className="flex-1 max-w-sm space-y-6">
     <div className="space-y-3 flex flex-col items-start justify-start">
       <div className="w-40 h-10 flex items-center justify-start">
-        <img src="/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain" />
+        <img src="/dev-tools/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain" />
       </div>
       <p className="text-foreground/70 text-sm font-medium pl-4 mt-2">
         Find us on social media
@@ -153,7 +153,7 @@ export default function Footer() {
     <footer className="relative w-full overflow-hidden">
       {/* Gradient overlay for seamless blend */}
       <div className="absolute top-0 left-0 w-full h-1/2 z-10 pointer-events-none" style={{ background: 'linear-gradient(to bottom, #000 0%, transparent 100%)' }} />
-      <div className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" style={{ backgroundImage: 'url("/footer.webp")', backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center bottom', opacity: 1, zIndex: 0 }} />
+      <div className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" style={{ backgroundImage: 'url("/dev-tools/footer.webp")', backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center bottom', opacity: 1, zIndex: 0 }} />
 
       {/* Content */}
       <div className="relative z-20 mx-auto max-w-screen-xl w-full px-6 sm:px-10 py-16 md:py-20">
@@ -165,8 +165,8 @@ export default function Footer() {
       </div>
       {/* Watermark SVG overlaying content */}
       <div className=" inset-0 flex items-center justify-center w-full h-full z-40 pointer-events-none select-none mix-blend-lighten" aria-hidden="true">
-        
-        <img src="/delta4-icon-footer.svg" alt="Delta4 watermark" className="w-40 max-w-5xl opacity-80 pb-5 object-contain object-center" />
+
+        <img src="/dev-tools/delta4-icon-footer.svg" alt="Delta4 watermark" className="w-40 max-w-5xl opacity-80 pb-5 object-contain object-center" />
       </div>
     </footer>
   );
