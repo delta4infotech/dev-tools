@@ -9,13 +9,15 @@ function LogoSection() {
   );
 }
 
+const baseUrl = "https://delta4.io"
+
 function NavbarLinks() {
   const LINKS = [
-    { link: "/", name: "Home" },
-    { link: "/about", name: "About Us" },
-    { link: "/careers", name: "Life at Delta4" },
-    { link: "/blog", name: "Blog" },
-    { link: "/contact", name: "Contact" },
+    { link: baseUrl, name: "Home" },
+    { link: baseUrl + "/about", name: "About Us" },
+    { link: baseUrl + "/careers", name: "Life at Delta4" },
+    { link: baseUrl + "/blog", name: "Blog" },
+    { link: baseUrl + "/contact", name: "Contact" },
   ];
   return (
     <div className="hidden sm:block">

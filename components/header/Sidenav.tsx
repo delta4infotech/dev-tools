@@ -3,21 +3,23 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 
+const baseUrl = "https://delta4.io"
+
 const LINKS = [
   {
-    link: "/",
+    link: baseUrl,
     name: "Home",
   },
   {
-    link: "/about",
+    link: baseUrl + "/about",
     name: "About Us",
   },
   {
-    link: "/careers",
+    link: baseUrl + "/careers",
     name: "Life at Delta4",
   },
   {
-    link: "/contact",
+    link: baseUrl + "/contact",
     name: "Contact",
   },
 
