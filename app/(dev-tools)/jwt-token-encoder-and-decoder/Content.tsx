@@ -56,11 +56,11 @@ const examples = [
         description: "Decode authentication tokens to inspect user claims and permissions.",
         list: [
             {
-                title: "JWT Token",
+                title: "Token",
                 content: "A JWT token containing user ID, email, roles, and expiration time encoded in the payload with proper headers and signature for secure authentication."
             },
             {
-                title: "Decoded Payload",
+                title: "Payload",
                 content: "The decoded payload reveals user information like ID, email, admin role, and expiration timestamp, making it easy to understand token contents and validity."
             },
         ],

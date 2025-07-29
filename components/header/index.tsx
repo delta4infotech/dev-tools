@@ -24,7 +24,7 @@ function NavbarLinks() {
   return (
     <div className="hidden sm:block">
       <div className="flex justify-center flex-1">
-        <div className="bg-foreground/10 border border-foreground/20 backdrop-blur-md rounded-xl flex shadow-lg p-1">
+        <div className="bg-primary/10 border border-foreground/20 backdrop-blur-md rounded-xl flex shadow-lg p-1">
           {LINKS.map((i) => (
             <Link
               href={i.link}
