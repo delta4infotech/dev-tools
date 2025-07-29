@@ -4,7 +4,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { Button } from "@/components/ui/button";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { Copy, BrushCleaning, RemoveFormatting } from "lucide-react";
+import { Copy, BrushCleaning, ArrowRightLeft } from "lucide-react";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
 
@@ -237,15 +237,6 @@ export default function Page() {
         }
     };
 
-    const handleCopy = async () => {
-        const textToCopy = formattedJSON || inputJSON;
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-        } catch (error) {
-            console.error('Failed to copy to clipboard:', error);
-        }
-    };
-
     const handleClear = () => {
         setInputJSON('');
         setFormattedJSON('');
@@ -256,14 +247,34 @@ export default function Page() {
             <Header />
             {/* Main Tool Content */}
             <div className="flex-1 bg-background w-full h-full">
-                <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mx-auto px-4 md:px-10  py-8">
                     {/* JSON Editor */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-16">
                         <div className="flex flex-col">
                             <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                <div className="bg-[#282c34] p-2 flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleClear}
+                                        className="px-3 py-1.5 h-8 text-sm"
+                                        size="sm"
+                                    >
+                                        <BrushCleaning className="w-3.5 h-3.5 mr-1.5" />
+                                        Clear
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => navigator.clipboard.writeText(inputJSON)}
+                                        className="px-3 py-1.5 h-8 text-sm"
+                                        size="sm"
+                                    >
+                                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                        Copy
+                                    </Button>
+                                </div>
                                 <CodeMirror
                                     value={inputJSON}
-                                    height={editorHeight}
+                                    height={`calc(${editorHeight} - 40px)`}
                                     extensions={[json()]}
                                     onChange={setInputJSON}
                                     theme={oneDark}
@@ -280,11 +291,43 @@ export default function Page() {
                                 JSON Input
                             </div>
                         </div>
+
+                        {/* Format Button Between Editors */}
+                        <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 transform -mt-8">
+                            <Button
+                                onClick={handleFormat}
+                                className="px-6 py-2.5 font-medium rounded-full shadow-md"
+                            >
+                                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                                Format
+                            </Button>
+                        </div>
+
                         <div className="flex flex-col">
                             <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                <div className="bg-[#282c34] p-2 flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setFormattedJSON('')}
+                                        className="px-3 py-1.5 h-8 text-sm"
+                                        size="sm"
+                                    >
+                                        <BrushCleaning className="w-3.5 h-3.5 mr-1.5" />
+                                        Clear
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => navigator.clipboard.writeText(formattedJSON)}
+                                        className="px-3 py-1.5 h-8 text-sm"
+                                        size="sm"
+                                    >
+                                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                        Copy
+                                    </Button>
+                                </div>
                                 <CodeMirror
                                     value={formattedJSON}
-                                    height={editorHeight}
+                                    height={`calc(${editorHeight} - 40px)`}
                                     extensions={[json()]}
                                     readOnly
                                     theme={oneDark}
@@ -302,30 +345,14 @@ export default function Page() {
                             </div>
                         </div>
                     </div>
-                    {/* Action Buttons */}
-                    <div className="flex justify-center gap-3">
+                    {/* Mobile Format Button */}
+                    <div className="flex lg:hidden justify-center mb-6">
                         <Button
                             onClick={handleFormat}
                             className="px-6 py-2.5 font-medium"
                         >
-                            <RemoveFormatting className="w-4 h-4 mr-2" />
+                            <ArrowRightLeft className="w-4 h-4 mr-2" />
                             Format
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={handleCopy}
-                            className="px-6 py-2.5 font-medium"
-                        >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={handleClear}
-                            className="px-6 py-2.5 font-medium"
-                        >
-                            <BrushCleaning className="w-4 h-4 mr-2" />
-                            Clear
                         </Button>
                     </div>
                 </div>
