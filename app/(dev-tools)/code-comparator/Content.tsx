@@ -328,7 +328,7 @@ export default function Content() {
     const renderDiffViewer = () => {
         if (isLoading) {
             return (
-                <div className="flex items-center justify-center h-full" style={{ minHeight: diffHeight }}>
+                <div className="flex items-center justify-center h-full px-1 bg-card" style={{ minHeight: diffHeight }}>
                     <div className="text-muted-foreground">Calculating differences...</div>
                 </div>
             );
@@ -339,7 +339,7 @@ export default function Content() {
 
         if (!trimmedOriginal && !trimmedModified) {
             return (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground" style={{ minHeight: diffHeight }}>
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground mx-1 bg-card" style={{ minHeight: diffHeight }}>
                     <div className="text-4xl mb-2">⚖️</div>
                     <div className="text-lg font-medium">No code to compare</div>
                     <div className="text-sm mt-2">
@@ -351,7 +351,7 @@ export default function Content() {
 
         if (diffResult.characterDiff) {
             return (
-                <div className="p-4 h-full overflow-auto" style={{ minHeight: diffHeight, maxHeight: `calc(${diffHeight} + 200px)` }}>
+                <div className="p-4 h-full overflow-auto bg-card" style={{ minHeight: diffHeight, maxHeight: `calc(${diffHeight} + 200px)` }}>
                     <div className="flex items-start">
                         <div className="w-8 text-right mr-4 text-muted-foreground select-none font-mono" style={{ fontSize: `${fontSize}px` }}>1</div>
                         <div className="flex-1 font-mono whitespace-pre-wrap" style={{ fontSize: `${fontSize}px` }}>
@@ -460,36 +460,39 @@ export default function Content() {
 
                     {/* Diff Viewer Section */}
                     <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm mb-16">
-                        <div className="bg-card p-2 mx-1 flex justify-between items-center">
+                        <div className="bg-card p-2  flex justify-between items-center w-full">
                             <div className="text-white font-medium">Differences</div>
-                            <div className="flex items-center gap-4">
-                                <div className="text-green-500 text-sm flex items-center">
-                                    <span className="w-3 h-3 inline-block bg-green-500 rounded-full mr-1.5 opacity-70"></span>
+
+                            <Button
+                                variant="outline"
+                                onClick={handleClear}
+                                className="px-3 py-1.5 h-8 text-sm ml-4"
+                                size="sm"
+                                disabled={!originalCode && !modifiedCode}
+                            >
+                                <BrushCleaning className="w-3.5 h-3.5 mr-1.5" />
+                                Clear All
+                            </Button>
+                            
+                        </div>
+                        <div className="bg-card text-white p-1">
+                            {renderDiffViewer()}
+                            <div className="flex items-center justify-end gap-4 pr-4 pb-4">
+                                <div className="text-green-500 text-xs md:text-sm flex items-center">
+                                    <span className="w-2 h-2 md:w-3 md:h-3 inline-block bg-green-500 rounded-full mr-1.5 opacity-70"></span>
                                     + {diffResult.stats.added} lines
                                 </div>
-                                <div className="text-red-500 text-sm flex items-center">
-                                    <span className="w-3 h-3 inline-block bg-red-500 rounded-full mr-1.5 opacity-70"></span>
+                                <div className="text-red-500 text-xs md:text-sm flex items-center">
+                                    <span className="w-2 h-2 md:w-3 md:h-3 inline-block bg-red-500 rounded-full mr-1.5 opacity-70"></span>
                                     - {diffResult.stats.removed} lines
                                 </div>
-                                <div className="text-yellow-500 text-sm flex items-center">
-                                    <span className="w-3 h-3 inline-block bg-yellow-500 rounded-full mr-1.5 opacity-70"></span>
+                                <div className="text-yellow-500 text-xs md:text-sm flex items-center">
+                                    <span className="w-2 h-2 md:w-3 md:h-3 inline-block bg-yellow-500 rounded-full mr-1.5 opacity-70"></span>
                                     ~ {diffResult.stats.modified} changes
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleClear}
-                                    className="px-3 py-1.5 h-8 text-sm ml-4"
-                                    size="sm"
-                                    disabled={!originalCode && !modifiedCode}
-                                >
-                                    <BrushCleaning className="w-3.5 h-3.5 mr-1.5" />
-                                    Clear All
-                                </Button>
                             </div>
                         </div>
-                        <div className="bg-card text-white">
-                            {renderDiffViewer()}
-                        </div>
+                        
                     </div>
                 </div>
             </div>
