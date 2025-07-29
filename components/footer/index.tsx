@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FaLinkedin, FaYoutube, FaFacebook, FaGithub, FaXTwitter } from "react-icons/fa6";
 import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker } from "react-icons/hi";
@@ -160,13 +160,71 @@ const ContactSection = () => (
 );
 
 export default function Footer() {
+  const footerRef = useRef<HTMLElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!footerRef.current) return;
+
+      const footer = footerRef.current;
+      const footerRect = footer.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+
+      // Calculate when footer starts entering viewport
+      const footerTop = footerRect.top;
+      const footerHeight = footerRect.height;
+
+      // Start animation when footer is about to enter viewport
+      const startTrigger = windowHeight;
+      const endTrigger = windowHeight - footerHeight;
+
+      let progress = 0;
+
+      if (footerTop <= startTrigger && footerTop >= endTrigger) {
+        // Footer is partially visible
+        progress = (startTrigger - footerTop) / (startTrigger - endTrigger);
+      } else if (footerTop < endTrigger) {
+        // Footer is fully visible
+        progress = 1;
+      }
+
+      // Smooth easing function for more natural animation
+      const easedProgress = progress * progress * (3 - 2 * progress); // smoothstep
+      setScrollProgress(Math.max(0, Math.min(1, easedProgress)));
+    };
+
+    // Initial check
+    handleScroll();
+
+    // Add scroll listener with throttling for performance
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
+
   return (
-    <footer className="relative w-full overflow-hidden">
+    <footer ref={footerRef} className="relative w-full overflow-hidden">
       {/* Seamless top blend with background */}
       <div className="absolute top-0 left-0 w-full h-20 z-10 pointer-events-none"
         style={{ background: 'linear-gradient(to bottom, hsl(var(--background)) 0%, hsl(var(--background))/0.9 50%, transparent 100%)' }} />
 
-      {/* Background image with reduced opacity */}
+      {/* Background image with scroll-triggered animation */}
       <div className="absolute inset-0 w-full h-full pointer-events-none"
         aria-hidden="true"
         style={{
@@ -174,7 +232,10 @@ export default function Footer() {
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center bottom',
-          opacity: 0.5,
+          opacity: 0.6 * scrollProgress,
+          transform: `translateY(${(1 - scrollProgress) * 50}%)`,
+          clipPath: `inset(${(1 - scrollProgress) * 100}% 0 0 0)`,
+          transition: scrollProgress === 0 ? 'none' : 'opacity 0.1s ease-out, transform 0.1s ease-out, clip-path 0.1s ease-out',
           zIndex: 1
         }} />
 
@@ -183,7 +244,7 @@ export default function Footer() {
         style={{
           background: `
                linear-gradient(to bottom, 
-                 rgba(0,0,0,0.9) 0%, 
+                  rgba(0,0,0,0.9) 0%, 
                  rgba(0,0,0,0.6) 25%, 
                  rgba(0,0,0,0.3) 50%, 
                  rgba(0,0,0,0.2) 70%, 
@@ -208,7 +269,7 @@ export default function Footer() {
           <img
             src="/dev-tools/delta4-icon-footer.svg"
             alt="Delta4 watermark"
-            className="w-18 md:w-38 opacity-10 object-contain mix-blend-soft-light transition-opacity duration-500 filter drop-shadow-sm pb-2"
+            className="w-18 md:w-38 opacity-40 object-contain mix-blend-soft-light transition-opacity duration-500 filter drop-shadow-sm pb-2"
           />
           {/* Additional glow effect around the logo */}
           <div

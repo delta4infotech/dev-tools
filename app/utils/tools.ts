@@ -29,11 +29,5 @@ export const tools = [
         description: "Encode and decode Base64 strings with ease. No registration required, completely private and secure.",
         link: "/base64-encoder-and-decoder",
         keywords: ["base64", "encoder", "decoder", "base64 encoder", "base64 decoder", "base64 encoder online", "base64 decoder online", "base64 encoder free", "base64 decoder free", "base64 encoder online free", "base64 decoder online free"]
-    },
-    {
-        title:"Image to Base64 Converter",
-        description: "Convert images to Base64 strings with ease. No registration required, completely private and secure.",
-        link: "/image-to-base64-converter",
-        keywords: ["image", "base64", "converter", "image to base64", "base64 converter", "image to base64 converter", "image to base64 converter online", "image to base64 converter free", "image to base64 converter online free"]
-    },
+    }
 ];

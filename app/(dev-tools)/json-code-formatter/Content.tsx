@@ -112,7 +112,7 @@ const examples = [
 
 const FAQs = ({ faqs }: { faqs: FAQProps[] }) => {
     return (
-        <div className="w-full bg-muted/20 py-16">
+        <div className="w-full bg-background py-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center text-foreground">Frequently Asked Questions</h2>
                 <FAQ faqs={faqs} />

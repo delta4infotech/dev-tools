@@ -17,12 +17,9 @@ export default function Header() {
                 </div>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-5 text-foreground">Dev Tools</h1>
-
-            <p className="text-base sm:text-lg text-muted-foreground mb-6 sm:mb-8 leading-6 font-light max-w-2xl mx-auto px-4">
-                Delta4 exists to make developers lives easier.
-                <br />
-                Here are fast, free, open source, ad-free tools.
+            <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-2 text-foreground">Dev Tools</h1>
+            <p className="text-base md:text-lg text-muted-foreground mb-6 md:mb-8 leading-tight font-light max-w-2xl mx-auto px-4">
+                Free, fast, and open source tools for developers.
             </p>
             <div className="px-4 mt-10">
                 <CMDK showSearch tools={tools} />
