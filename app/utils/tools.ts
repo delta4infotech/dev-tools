@@ -19,9 +19,21 @@ export const tools = [
         keywords: ["find", "replace", "text", "code", "editor", "search", "replace", "find and replace", "text editor", "code editor", "search and replace", "find and replace text", "find and replace code"]
     },
     {
-        title:"JWT Token Decoder",
-        description: "Decode JWT tokens with ease. No registration required, completely private and secure.",
-        link: "/jwt-token-decoder",
-        keywords: ["jwt", "token", "decoder", "jwt decoder", "jwt token decoder", "jwt token decoder online", "jwt token decoder free", "jwt token decoder online free"]
-    }
+        title:"JWT Token Encoder & Decoder",
+        description: "Encode and decode JWT tokens with ease. No registration required, completely private and secure.",
+        link: "/jwt-token-encoder-and-decoder",
+        keywords: ["jwt", "token", "encoder", "jwt encoder", "jwt token encoder", "jwt token encoder online", "jwt token encoder free", "jwt token encoder online free", "jwt token decoder", "jwt token decoder online", "jwt token decoder free", "jwt token decoder online free"]
+    },
+    {
+        title:"Base64 Encoder & Decoder",
+        description: "Encode and decode Base64 strings with ease. No registration required, completely private and secure.",
+        link: "/base64-encoder-and-decoder",
+        keywords: ["base64", "encoder", "decoder", "base64 encoder", "base64 decoder", "base64 encoder online", "base64 decoder online", "base64 encoder free", "base64 decoder free", "base64 encoder online free", "base64 decoder online free"]
+    },
+    {
+        title:"Image to Base64 Converter",
+        description: "Convert images to Base64 strings with ease. No registration required, completely private and secure.",
+        link: "/image-to-base64-converter",
+        keywords: ["image", "base64", "converter", "image to base64", "base64 converter", "image to base64 converter", "image to base64 converter online", "image to base64 converter free", "image to base64 converter online free"]
+    },
 ];
