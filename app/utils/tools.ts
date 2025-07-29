@@ -17,5 +17,11 @@ export const tools = [
         description: "Find and replace text in your code with ease. No registration required, completely private and secure.",
         link: "/find-and-replace",
         keywords: ["find", "replace", "text", "code", "editor", "search", "replace", "find and replace", "text editor", "code editor", "search and replace", "find and replace text", "find and replace code"]
+    },
+    {
+        title:"JWT Token Decoder",
+        description: "Decode JWT tokens with ease. No registration required, completely private and secure.",
+        link: "/jwt-token-decoder",
+        keywords: ["jwt", "token", "decoder", "jwt decoder", "jwt token decoder", "jwt token decoder online", "jwt token decoder free", "jwt token decoder online free"]
     }
 ];

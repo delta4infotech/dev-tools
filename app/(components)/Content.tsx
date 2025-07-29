@@ -6,7 +6,7 @@ import Header from "../(components)/Header";
 
 export default function Content() {
     return (
-        <main className="pb-8 min-h-screen pt-20 sm:pt-24">
+        <main className="pb-8 min-h-screen pt-10">
             {/* Header */}
             <div className={appContent({ padding: "sm" })}>
                 <Header />

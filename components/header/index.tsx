@@ -1,5 +1,7 @@
+"use client"
 import Sidenav from "./Sidenav";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 function LogoSection() {
   return (
@@ -50,9 +52,51 @@ function HiringButton() {
   );
 }
 
+function useScrollDirection() {
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+
+          if (currentScrollY > lastScrollY) {
+            // Scrolling down - hide immediately
+            setIsVisible(false);
+          } else if (currentScrollY < lastScrollY) {
+            // Scrolling up - show
+            setIsVisible(true);
+          }
+
+          setLastScrollY(currentScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [lastScrollY]);
+
+  return isVisible;
+}
+
 export default function Navbar() {
+  const isVisible = useScrollDirection();
+
   return (
-    <div className="fixed left-0 w-full top-0 z-[40] px-4 sm:px-6 ">
+    <div
+      className={`fixed left-0 w-full top-0 z-[40] px-4 sm:px-6 transition-transform duration-200 ease-in-out ${isVisible ? "translate-y-0" : "-translate-y-full"
+        }`}
+    >
       <div className="py-4 max-w-screen-xl mx-auto">
         <div className="flex items-center justify-between">
           <LogoSection />
