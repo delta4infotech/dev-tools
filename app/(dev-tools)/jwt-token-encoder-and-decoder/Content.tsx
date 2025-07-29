@@ -5,6 +5,7 @@ import { json } from "@codemirror/lang-json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { Copy, BrushCleaning, Lock, Unlock, CheckCircle, XCircle } from "lucide-react";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
@@ -181,7 +182,7 @@ export default function Content() {
     const [payloadInput, setPayloadInput] = useState('{\n  "sub": "1234567890",\n  "name": "John Doe",\n  "admin": true,\n  "iat": 1516239022\n}');
     const [encodedJWT, setEncodedJWT] = useState('');
 
-    const [editorHeight, setEditorHeight] = useState('300px');
+    const [editorHeight, setEditorHeight] = useState('400px');
     const [fontSize, setFontSize] = useState(14);
 
     // Calculate dynamic height and font size
@@ -199,17 +200,17 @@ export default function Content() {
             let minHeight, maxHeightPercent;
 
             if (window.innerWidth >= 2560) {
+                minHeight = 500;
+                maxHeightPercent = 0.5;
+            } else if (window.innerWidth >= 1920) {
+                minHeight = 450;
+                maxHeightPercent = 0.45;
+            } else if (window.innerWidth >= 1440) {
                 minHeight = 400;
                 maxHeightPercent = 0.4;
-            } else if (window.innerWidth >= 1920) {
+            } else {
                 minHeight = 350;
                 maxHeightPercent = 0.35;
-            } else if (window.innerWidth >= 1440) {
-                minHeight = 300;
-                maxHeightPercent = 0.3;
-            } else {
-                minHeight = 250;
-                maxHeightPercent = 0.3;
             }
 
             const maxHeight = window.innerHeight * maxHeightPercent;
@@ -323,238 +324,245 @@ export default function Content() {
             <div className="flex-1 bg-background w-full h-full">
                 <div className="mx-auto px-4 md:px-10 py-8">
 
-                    {/* JWT Decoder Section */}
-                    <div className="mb-16">
-                        <h2 className="text-xl font-semibold mb-6 text-foreground">JWT Decoder</h2>
+                    <Tabs defaultValue="decoder" className="w-full">
+                        <TabsList>
+                            <TabsTrigger value="decoder">
+                                <Unlock className="w-4 h-4 mr-2" />
+                                Decoder
+                            </TabsTrigger>
+                            <TabsTrigger value="encoder">
+                                <Lock className="w-4 h-4 mr-2" />
+                                Encoder
+                            </TabsTrigger>
+                        </TabsList>
 
-                        {/* JWT Input */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium mb-2 text-foreground">JWT Token</label>
-                            <div className="flex flex-col gap-4">
-                                <Textarea
-                                    value={jwtToken}
-                                    onChange={(e) => setJwtToken(e.target.value)}
-                                    placeholder="Paste your JWT token here..."
-                                    className="min-h-20 font-mono text-sm"
-                                />
-                                <div className="flex gap-2">
-                                    <Button onClick={handleDecode} className="px-6">
-                                        <Unlock className="w-4 h-4 mr-2" />
-                                        Decode JWT
+                        {/* JWT Decoder Tab */}
+                        <TabsContent value="decoder" className="mt-6 bg-card border border-foreground/10 rounded-lg p-6 shadow-sm">
+                            {/* JWT Input */}
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium mb-2 text-foreground">JWT Token</label>
+                                <div className="flex flex-col gap-4">
+                                    <Textarea
+                                        value={jwtToken}
+                                        onChange={(e) => setJwtToken(e.target.value)}
+                                        placeholder="Paste your JWT token here..."
+                                        className="min-h-20 font-mono text-sm"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleDecode} className="px-6">
+                                            <Unlock className="w-4 h-4 mr-2" />
+                                            Decode JWT
+                                        </Button>
+                                        <Button variant="outline" onClick={handleClear}>
+                                            <BrushCleaning className="w-4 h-4 mr-2" />
+                                            Clear
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Decoded Results */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Header */}
+                                <div className="flex flex-col">
+                                    <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                        <div className="bg-[#282c34] p-2 flex justify-between items-center">
+                                            <span className="text-sm font-medium text-white">Header</span>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => navigator.clipboard.writeText(decodedHeader)}
+                                                className="px-3 py-1.5 h-8 text-sm"
+                                                size="sm"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                Copy
+                                            </Button>
+                                        </div>
+                                        <CodeMirror
+                                            value={decodedHeader}
+                                            height={`calc(${editorHeight} - 40px)`}
+                                            extensions={[json()]}
+                                            readOnly
+                                            theme={oneDark}
+                                            basicSetup={{
+                                                lineNumbers: true,
+                                                foldGutter: true,
+                                                highlightActiveLine: true,
+                                            }}
+                                            style={{ fontSize: `${fontSize}px` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Payload */}
+                                <div className="flex flex-col">
+                                    <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                        <div className="bg-[#282c34] p-2 flex justify-between items-center">
+                                            <span className="text-sm font-medium text-white">Payload</span>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => navigator.clipboard.writeText(decodedPayload)}
+                                                className="px-3 py-1.5 h-8 text-sm"
+                                                size="sm"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                Copy
+                                            </Button>
+                                        </div>
+                                        <CodeMirror
+                                            value={decodedPayload}
+                                            height={`calc(${editorHeight} - 40px)`}
+                                            extensions={[json()]}
+                                            readOnly
+                                            theme={oneDark}
+                                            basicSetup={{
+                                                lineNumbers: true,
+                                                foldGutter: true,
+                                                highlightActiveLine: true,
+                                            }}
+                                            style={{ fontSize: `${fontSize}px` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Signature Verification */}
+                                <div className="flex flex-col">
+                                    <div className="bg-card border border-foreground/10 rounded-lg p-4 shadow-sm" style={{ height: editorHeight }}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-sm font-medium text-foreground">Signature Verification</h3>
+                                            {isValidSignature !== null && (
+                                                <div className="flex items-center gap-2">
+                                                    {isValidSignature ? (
+                                                        <>
+                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                            <span className="text-sm text-green-700 dark:text-green-400">Valid signature</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <XCircle className="w-4 h-4 text-red-600" />
+                                                            <span className="text-sm text-red-700 dark:text-red-400">Invalid signature</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-10 py-4">
+                                            <div>
+                                                <label className="block text-xs font-medium mb-2 text-muted-foreground">Secret Key</label>
+                                                <Input
+                                                    type="password"
+                                                    value={secret}
+                                                    onChange={(e) => setSecret(e.target.value)}
+                                                    placeholder="Enter secret key..."
+                                                    className="text-sm border bg-background border-foreground/10 rounded-md"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-medium mb-2 text-muted-foreground">Signature</label>
+                                                <div className="bg-background p-2 rounded-md font-mono text-xs break-all overflow-x-auto overflow-y-auto max-h-48 max-w-full border border-foreground/10 whitespace-pre-wrap">
+                                                    {signature || 'No signature'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* JWT Encoder Tab */}
+                        <TabsContent value="encoder" className="mt-6 bg-card border border-foreground/10 rounded-lg p-6 shadow-sm">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                {/* Header Input */}
+                                <div className="flex flex-col">
+                                    <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                        <div className="bg-[#282c34] p-2 flex justify-between items-center">
+                                            <span className="text-sm font-medium text-white">Header</span>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => navigator.clipboard.writeText(headerInput)}
+                                                className="px-3 py-1.5 h-8 text-sm"
+                                                size="sm"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                Copy
+                                            </Button>
+                                        </div>
+                                        <CodeMirror
+                                            value={headerInput}
+                                            height={`calc(${editorHeight} - 40px)`}
+                                            extensions={[json()]}
+                                            onChange={setHeaderInput}
+                                            theme={oneDark}
+                                            basicSetup={{
+                                                lineNumbers: true,
+                                                foldGutter: true,
+                                                highlightActiveLine: true,
+                                            }}
+                                            style={{ fontSize: `${fontSize}px` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Payload Input */}
+                                <div className="flex flex-col">
+                                    <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
+                                        <div className="bg-[#282c34] p-2 flex justify-between items-center">
+                                            <span className="text-sm font-medium text-white">Payload</span>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => navigator.clipboard.writeText(payloadInput)}
+                                                className="px-3 py-1.5 h-8 text-sm"
+                                                size="sm"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                                Copy
+                                            </Button>
+                                        </div>
+                                        <CodeMirror
+                                            value={payloadInput}
+                                            height={`calc(${editorHeight} - 40px)`}
+                                            extensions={[json()]}
+                                            onChange={setPayloadInput}
+                                            theme={oneDark}
+                                            basicSetup={{
+                                                lineNumbers: true,
+                                                foldGutter: true,
+                                                highlightActiveLine: true,
+                                            }}
+                                            style={{ fontSize: `${fontSize}px` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Secret Input and Generate Button */}
+                            <div className="mb-6 border border-foreground/10 rounded-lg p-6 shadow-sm">
+                                <label className="block text-sm font-medium mb-2 text-foreground">Secret Key (for HMAC signing)</label>
+                                <div className="flex gap-4">
+                                    <Input
+                                        type="password"
+                                        value={secret}
+                                        onChange={(e) => setSecret(e.target.value)}
+                                        placeholder="Enter secret key for signing..."
+                                        className="flex-1 border border-foreground/10 rounded-md bg-background"
+                                    />
+                                    <Button onClick={handleEncode} className="px-6">
+                                        <Lock className="w-4 h-4 mr-2" />
+                                        Generate JWT
                                     </Button>
-                                    <Button variant="outline" onClick={handleClear}>
+                                    <Button variant="outline" onClick={handleClearEncoding}>
                                         <BrushCleaning className="w-4 h-4 mr-2" />
                                         Clear
                                     </Button>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Decoded Results */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Header */}
-                            <div className="flex flex-col">
-                                <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
-                                    <div className="bg-[#282c34] p-2 flex justify-between items-center">
-                                        <span className="text-sm font-medium text-white">Header</span>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => navigator.clipboard.writeText(decodedHeader)}
-                                            className="px-3 py-1.5 h-8 text-sm"
-                                            size="sm"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                            Copy
-                                        </Button>
-                                    </div>
-                                    <CodeMirror
-                                        value={decodedHeader}
-                                        height={`calc(${editorHeight} - 40px)`}
-                                        extensions={[json()]}
-                                        readOnly
-                                        theme={oneDark}
-                                        basicSetup={{
-                                            lineNumbers: true,
-                                            foldGutter: true,
-                                            highlightActiveLine: true,
-                                        }}
-                                        style={{ fontSize: `${fontSize}px` }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Payload */}
-                            <div className="flex flex-col">
-                                <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
-                                    <div className="bg-[#282c34] p-2 flex justify-between items-center">
-                                        <span className="text-sm font-medium text-white">Payload</span>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => navigator.clipboard.writeText(decodedPayload)}
-                                            className="px-3 py-1.5 h-8 text-sm"
-                                            size="sm"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                            Copy
-                                        </Button>
-                                    </div>
-                                    <CodeMirror
-                                        value={decodedPayload}
-                                        height={`calc(${editorHeight} - 40px)`}
-                                        extensions={[json()]}
-                                        readOnly
-                                        theme={oneDark}
-                                        basicSetup={{
-                                            lineNumbers: true,
-                                            foldGutter: true,
-                                            highlightActiveLine: true,
-                                        }}
-                                        style={{ fontSize: `${fontSize}px` }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Signature Verification */}
-                            <div className="flex flex-col">
-                                <div className="border border-border/50 rounded-lg p-4 shadow-sm" style={{ height: editorHeight }}>
-                                    <h3 className="text-sm font-medium mb-4 text-foreground">Signature Verification</h3>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-xs font-medium mb-2 text-muted-foreground">Secret Key</label>
-                                            <Input
-                                                type="password"
-                                                value={secret}
-                                                onChange={(e) => setSecret(e.target.value)}
-                                                placeholder="Enter secret key..."
-                                                className="text-sm"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-medium mb-2 text-muted-foreground">Signature</label>
-                                            <div className="bg-muted/20 p-2 rounded font-mono text-xs break-all">
-                                                {signature || 'No signature'}
-                                            </div>
-                                        </div>
-
-                                        {isValidSignature !== null && (
-                                            <div className={`flex items-center gap-2 p-2 rounded ${isValidSignature ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
-                                                {isValidSignature ? (
-                                                    <>
-                                                        <CheckCircle className="w-4 h-4 text-green-600" />
-                                                        <span className="text-sm text-green-700 dark:text-green-400">Valid signature</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <XCircle className="w-4 h-4 text-red-600" />
-                                                        <span className="text-sm text-red-700 dark:text-red-400">Invalid signature</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* JWT Encoder Section */}
-                    <div className="mb-16">
-                        <h2 className="text-xl font-semibold mb-6 text-foreground">JWT Encoder</h2>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            {/* Header Input */}
-                            <div className="flex flex-col">
-                                <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
-                                    <div className="bg-[#282c34] p-2 flex justify-between items-center">
-                                        <span className="text-sm font-medium text-white">Header</span>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => navigator.clipboard.writeText(headerInput)}
-                                            className="px-3 py-1.5 h-8 text-sm"
-                                            size="sm"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                            Copy
-                                        </Button>
-                                    </div>
-                                    <CodeMirror
-                                        value={headerInput}
-                                        height={`calc(${editorHeight} - 40px)`}
-                                        extensions={[json()]}
-                                        onChange={setHeaderInput}
-                                        theme={oneDark}
-                                        basicSetup={{
-                                            lineNumbers: true,
-                                            foldGutter: true,
-                                            highlightActiveLine: true,
-                                        }}
-                                        style={{ fontSize: `${fontSize}px` }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Payload Input */}
-                            <div className="flex flex-col">
-                                <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
-                                    <div className="bg-[#282c34] p-2 flex justify-between items-center">
-                                        <span className="text-sm font-medium text-white">Payload</span>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => navigator.clipboard.writeText(payloadInput)}
-                                            className="px-3 py-1.5 h-8 text-sm"
-                                            size="sm"
-                                        >
-                                            <Copy className="w-3.5 h-3.5 mr-1.5" />
-                                            Copy
-                                        </Button>
-                                    </div>
-                                    <CodeMirror
-                                        value={payloadInput}
-                                        height={`calc(${editorHeight} - 40px)`}
-                                        extensions={[json()]}
-                                        onChange={setPayloadInput}
-                                        theme={oneDark}
-                                        basicSetup={{
-                                            lineNumbers: true,
-                                            foldGutter: true,
-                                            highlightActiveLine: true,
-                                        }}
-                                        style={{ fontSize: `${fontSize}px` }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Secret Input and Generate Button */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium mb-2 text-foreground">Secret Key (for HMAC signing)</label>
-                            <div className="flex gap-4">
-                                <Input
-                                    type="password"
-                                    value={secret}
-                                    onChange={(e) => setSecret(e.target.value)}
-                                    placeholder="Enter secret key for signing..."
-                                    className="flex-1"
-                                />
-                                <Button onClick={handleEncode} className="px-6">
-                                    <Lock className="w-4 h-4 mr-2" />
-                                    Generate JWT
-                                </Button>
-                                <Button variant="outline" onClick={handleClearEncoding}>
-                                    <BrushCleaning className="w-4 h-4 mr-2" />
-                                    Clear
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Generated JWT Output */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2 text-foreground">Generated JWT Token</label>
-                            <div className="border border-border/50 rounded-lg p-4 bg-muted/20">
-                                <div className="flex justify-between items-start mb-2">
-                                    <span className="text-sm font-medium text-foreground">JWT Token</span>
+                            {/* Generated JWT Output */}
+                            <div className=" border border-foreground/10 rounded-lg p-6 shadow-sm">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-sm font-medium mb-2 text-foreground">Generated JWT Token</label>
                                     <Button
                                         variant="outline"
                                         onClick={() => navigator.clipboard.writeText(encodedJWT)}
@@ -566,12 +574,13 @@ export default function Content() {
                                         Copy
                                     </Button>
                                 </div>
-                                <div className="font-mono text-sm break-all bg-background p-3 rounded border min-h-16">
+                                <div className="font-mono text-sm break-all p-4 rounded-md min-h-16 bg-background border border-foreground/10">
                                     {encodedJWT || 'Generated JWT will appear here...'}
                                 </div>
+
                             </div>
-                        </div>
-                    </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </div>
 
