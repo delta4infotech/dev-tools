@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 import { Copy, RotateCcw, Search, Replace, CaseSensitive, WholeWord, Regex } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -44,6 +43,12 @@ const faqs = [
         title: "How do the match options work together?",
         content:
             "Match Case makes the search case-sensitive, Match Word finds whole words only, and Use Regex enables pattern matching. These options can be combined for precise searching.",
+    },
+    {
+        id: "7",
+        title: "How does multi-line search work?",
+        content:
+            "Multi-line search allows you to find and replace content that spans multiple lines. Simply paste or type your multi-line pattern in the search field - including actual line breaks. Perfect for finding code blocks, multi-line comments, or any text that spans multiple lines.",
     }
 ];
 
@@ -62,6 +67,21 @@ const examples = [
             },
         ],
         bottomdesc: "Efficiently refactor code by finding exact variable names and function calls with precision using word matching and regex patterns."
+    },
+    {
+        title: "Multi-line Code Patterns",
+        description: "Find and replace multi-line code blocks, function definitions, or structured text.",
+        list: [
+            {
+                title: "Before",
+                content: "Struggling to find and replace code blocks that span multiple lines, like function definitions or comment blocks."
+            },
+            {
+                title: "After",
+                content: "Simply copy the exact multi-line pattern (including line breaks) into the search field to find and replace entire code blocks, comments, or structured text."
+            },
+        ],
+        bottomdesc: "Handle complex multi-line patterns for code refactoring, comment updates, and structured text transformations with ease."
     },
     {
         title: "Text Processing & Cleanup",
@@ -167,7 +187,36 @@ const assumption = "test";
 
 // Try searching "sum" with Match Word ON/OFF
 
-// 3. REGEX Testing Examples:
+// 3. MULTI-LINE Testing Examples:
+const user = "john";
+const User = "ADMIN";
+
+function oldFunction() {
+    console.log("This is old");
+    return true;
+}
+
+function anotherOldFunction() {
+    console.log("Another old one");
+    return false;
+}
+
+/* Multi-line comment
+   that spans multiple
+   lines for testing */
+
+// Try these multi-line patterns:
+// Copy this exactly (including line breaks):
+const user = "john";
+const User = "ADMIN";
+
+// Or this function block:
+function oldFunction() {
+    console.log("This is old");
+    return true;
+}
+
+// 4. REGEX Testing Examples:
 const phone1 = "123-456-7890";
 const phone2 = "(555) 123-4567";
 const email1 = "test@example.com";
@@ -178,7 +227,7 @@ const email2 = "admin@company.org";
 // \\w+@\\w+\\.\\w+      (matches emails)
 // \\b[A-Z]+\\b          (matches all-caps words)
 
-// 4. Combined Testing:
+// 5. Combined Testing:
 const data = {
   id: 1,
   ID: 2,
@@ -285,9 +334,10 @@ const data = {
         try {
             let pattern = searchText;
 
-            // If not using regex, escape special characters
+            // If not using regex, escape special characters but preserve newlines
             if (!useRegex) {
                 pattern = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Don't escape newlines - we want them to match literally
             }
 
             // Add word boundaries if match word is enabled
@@ -300,6 +350,8 @@ const data = {
             if (!matchCase) {
                 flags += 'i';
             }
+            // Always add 's' flag to make . match newlines for multi-line patterns
+            flags += 's';
 
             return new RegExp(pattern, flags);
         } catch {
@@ -449,7 +501,7 @@ const data = {
                                 {/* Highlight overlay */}
                                 <div
                                     ref={overlayRef}
-                                    className="absolute inset-1 p-2 font-mono pointer-events-none overflow-hidden whitespace-pre-wrap z-10 text-transparent"
+                                    className="absolute inset-1 p-2 font-mono pointer-events-none overflow-hidden whitespace-pre-wrap z-10 text-transparent bg-card/50"
                                     style={{
                                         height: editorHeight,
                                         fontSize: `${fontSize}px`,
@@ -491,15 +543,16 @@ const data = {
                                         </label>
                                         <div className="w-full">
                                             <div className="relative border border-foreground/10 rounded-md w-full">
-                                                <Input
+                                                <textarea
                                                     id="find-input"
-                                                    placeholder="Search for..."
+                                                    placeholder="Search"
                                                     value={findText}
                                                     onChange={(e) => setFindText(e.target.value)}
-                                                    className="font-mono pr-32 w-full"
+                                                    className="font-mono pr-32 w-full min-h-[80px] max-h-[200px] p-3 bg-card text-foreground border-none resize-y focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                                                    rows={3}
                                                 />
                                                 {/* Inline Toggle Options */}
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                <div className="absolute right-2 top-2 flex items-center gap-1">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <button
@@ -559,12 +612,13 @@ const data = {
                                             <Replace className="w-4 h-4 mr-2" />
                                             Replace with
                                         </label>
-                                        <Input
+                                        <textarea
                                             id="replace-input"
-                                            placeholder="Replace with..."
+                                            placeholder="Replace"
                                             value={replaceText}
                                             onChange={(e) => setReplaceText(e.target.value)}
-                                            className="font-mono border border-foreground/10 rounded-md w-full"
+                                            className="font-mono border border-foreground/10 rounded-md w-full min-h-[80px] max-h-[200px] p-3 bg-card text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                                            rows={3}
                                         />
                                     </div>
                                 </div>
