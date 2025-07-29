@@ -64,21 +64,21 @@ const SocialIcon = ({ social }: { social: typeof SOCIAL_LINKS[0] }) => {
       href={social.link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group flex items-center justify-center w-10 h-10 bg-foreground/10 backdrop-blur-sm rounded-full transition-all duration-300 ease-out hover:bg-foreground/20 hover:scale-110 ${social.color}`}
+      className={`group flex items-center justify-center w-11 h-11 bg-foreground/10 backdrop-blur-sm rounded-xl border border-foreground/10 transition-all duration-300 ease-out hover:bg-foreground/20 hover:scale-110 hover:rotate-3 hover:shadow-lg hover:shadow-primary/20 ${social.color}`}
       aria-label={`Follow us on ${social.name}`}
     >
-      <IconComponent className="w-5 h-5 transition-transform duration-300 group-hover:scale-110 text-foreground" />
+      <IconComponent className="w-5 h-5 transition-all duration-300 group-hover:scale-125 text-foreground group-hover:drop-shadow-sm" />
     </Link>
   );
 };
 
 const CompanySection = () => (
   <div className="flex-1 max-w-sm space-y-6">
-    <div className="space-y-3 flex flex-col items-start justify-start">
+    <div className="space-y-4 flex flex-col items-start justify-start">
       <div className="w-40 h-10 flex items-center justify-start">
-        <img src="/dev-tools/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain" />
+        <img src="/dev-tools/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
       </div>
-      <p className="text-foreground/70 text-sm font-medium pl-4 mt-2">
+      <p className="text-foreground/70 text-sm font-medium pl-4 mt-2 leading-relaxed">
         Find us on social media
       </p>
     </div>
@@ -92,17 +92,21 @@ const CompanySection = () => (
 
 const QuickLinksSection = () => (
   <div className="flex-1 max-w-sm space-y-6">
-    <h3 className="text-xl font-semibold text-foreground mb-4">
+    <h3 className="text-xl font-semibold text-foreground mb-6 relative">
       Quick Links
+      <div className="absolute bottom-0 left-0 w-12 h-0.5 bg-gradient-to-r from-primary to-primary/50 rounded-full"></div>
     </h3>
-    <nav className="space-y-4 grid grid-cols-2 ">
+    <nav className="space-y-4 grid grid-cols-2 gap-y-3">
       {NAVIGATION_LINKS.map((link) => (
         <Link
           key={link.id}
           href={link.url}
-          className="block text-foreground/60 hover:text-foreground duration-200 text-sm font-medium hover:translate-x-1 transform transition-transform text-left"
+          className="block text-foreground/70 hover:text-foreground duration-300 text-sm font-medium hover:translate-x-2 transform transition-all hover:text-primary/90 group"
         >
-          {link.label}
+          <span className="relative">
+            {link.label}
+            <span className="absolute inset-x-0 -bottom-1 h-px bg-gradient-to-r from-primary/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+          </span>
         </Link>
       ))}
     </nav>
@@ -111,17 +115,20 @@ const QuickLinksSection = () => (
 
 const ContactSection = () => (
   <div className="flex-1 max-w-sm space-y-6">
-    <h3 className="text-xl font-semibold text-white mb-4">
+    <h3 className="text-xl font-semibold text-foreground mb-6 relative">
       Contact
+      <div className="absolute bottom-0 left-0 w-12 h-0.5 bg-gradient-to-r from-primary to-primary/50 rounded-full"></div>
     </h3>
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Link
         href="https://goo.gl/maps/1biUvQXKisRpcMGS6"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-start gap-3 text-foreground/70 hover:text-foreground transition-colors duration-200 group"
+        className="flex items-start gap-4 text-foreground/70 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
       >
-        <HiOutlineLocationMarker className="w-5 h-5 mt-0.5 flex-shrink-0 group-hover:text-primary transition-colors" />
+        <div className="flex-shrink-0 w-5 h-5 mt-0.5 flex items-center justify-center">
+          <HiOutlineLocationMarker className="w-5 h-5 group-hover:text-primary transition-colors group-hover:scale-110 transform duration-300" />
+        </div>
         <span className="text-sm leading-relaxed">
           F126, Phase 7, Industrial Area, Sector 73,<br />
           S.A.S Nagar, Punjab, India 160055
@@ -130,16 +137,20 @@ const ContactSection = () => (
 
       <Link
         href="mailto:contact@delta4infotech.com"
-        className="flex items-center gap-3 text-foreground/70 hover:text-foreground transition-colors duration-200 group"
+        className="flex items-center gap-4 text-foreground/70 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
       >
-        <HiOutlineMail className="w-5 h-5 flex-shrink-0 group-hover:text-primary transition-colors" />
+        <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+          <HiOutlineMail className="w-5 h-5 group-hover:text-primary transition-colors group-hover:scale-110 transform duration-300" />
+        </div>
         <span className="text-sm font-medium">
           contact@delta4infotech.com
         </span>
       </Link>
 
-      <div className="flex items-center gap-3 text-white/70">
-        <HiOutlinePhone className="w-5 h-5 flex-shrink-0" />
+      <div className="flex items-center gap-4 text-foreground/70 group">
+        <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+          <HiOutlinePhone className="w-5 h-5 group-hover:text-primary transition-colors" />
+        </div>
         <span className="text-sm font-medium">
           Contact: 0172 5043532
         </span>
@@ -151,22 +162,62 @@ const ContactSection = () => (
 export default function Footer() {
   return (
     <footer className="relative w-full overflow-hidden">
-      {/* Gradient overlay for seamless blend */}
-      <div className="absolute top-0 left-0 w-full h-1/2 z-10 pointer-events-none" style={{ background: 'linear-gradient(to bottom, #000 0%, transparent 100%)' }} />
-      <div className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true" style={{ backgroundImage: 'url("/dev-tools/footer.webp")', backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center bottom', opacity: 1, zIndex: 0 }} />
+      {/* Seamless top blend with background */}
+      <div className="absolute top-0 left-0 w-full h-20 z-10 pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, hsl(var(--background)) 0%, hsl(var(--background))/0.9 50%, transparent 100%)' }} />
+
+      {/* Background image with reduced opacity */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none"
+        aria-hidden="true"
+        style={{
+          backgroundImage: 'url("/dev-tools/footer-bg.png")',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center bottom',
+          opacity: 0.5,
+          zIndex: 1
+        }} />
+
+      {/* Sunrise gradient effect - darker top, lighter bottom with brighter content area */}
+      <div className="absolute inset-0 w-full h-full z-5 pointer-events-none"
+        style={{
+          background: `
+               linear-gradient(to bottom, 
+                 rgba(0,0,0,0.9) 0%, 
+                 rgba(0,0,0,0.6) 25%, 
+                 rgba(0,0,0,0.3) 50%, 
+                 rgba(0,0,0,0.2) 70%, 
+                 rgba(0,0,0,0.1) 85%, 
+                 rgba(255,255,255,0.05) 100%
+               )
+             `
+        }} />
 
       {/* Content */}
-      <div className="relative z-20 mx-auto max-w-screen-xl w-full px-6 sm:px-10 py-16 md:py-20">
+      <div className="relative z-30 mx-auto max-w-screen-xl w-full px-6 sm:px-10 py-16 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-16">
           <CompanySection />
           <QuickLinksSection />
           <ContactSection />
         </div>
       </div>
-      {/* Watermark SVG overlaying content */}
-      <div className=" inset-0 flex items-center justify-center w-full h-full z-40 pointer-events-none select-none mix-blend-lighten" aria-hidden="true">
 
-        <img src="/dev-tools/delta4-icon-footer.svg" alt="Delta4 watermark" className="w-40 max-w-5xl opacity-80 pb-5 object-contain object-center" />
+      {/* Centered watermark logo - behind content */}
+      <div className="relative flex items-center justify-center w-full h-full z-20 pointer-events-none select-none" aria-hidden="true">
+        <div className="relative">
+          <img
+            src="/dev-tools/delta4-icon-footer.svg"
+            alt="Delta4 watermark"
+            className="w-18 md:w-38 opacity-10 object-contain mix-blend-soft-light transition-opacity duration-500 filter drop-shadow-sm pb-2"
+          />
+          {/* Additional glow effect around the logo */}
+          <div
+            className="absolute inset-0 rounded-full blur-xl scale-150 mix-blend-soft-light"
+            style={{
+              background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)'
+            }}
+          />
+        </div>
       </div>
     </footer>
   );
