@@ -11,5 +11,11 @@ export const tools = [
         description: "Compare two versions of code side by side with detailed difference highlighting. No registration required, completely private and secure.",
         link: "/code-comparator",
         keywords: ["code", "comparator", "diff", "viewer", "comparison", "compare", "differences", "diff tool"]
+    },
+    {
+        title:"Find & Replace",
+        description: "Find and replace text in your code with ease. No registration required, completely private and secure.",
+        link: "/find-and-replace",
+        keywords: ["find", "replace", "text", "code", "editor", "search", "replace", "find and replace", "text editor", "code editor", "search and replace", "find and replace text", "find and replace code"]
     }
 ];
