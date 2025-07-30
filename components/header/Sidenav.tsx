@@ -67,15 +67,33 @@ const Sidenav = () => {
                 opacity: 0,
                 y: 10,
               }}
-              className=" bg-[#fffffff3] rounded-2xl  justify-between  w-[250px] relative z-[2] flex  gap-2 p-4 mr-4 mt-4"
+              className="bg-background/40 rounded-2xl shadow-lg w-[280px] relative z-[2] flex flex-col mr-4 mt-4 backdrop-blur-md border border-foreground/10"
             >
-              <div className="py-3">
+              <div className="flex items-center justify-between p-4 border-b border-foreground/30">
+                <h3 className="text-lg font-semibold text-foreground">Menu</h3>
+                <motion.button
+                  onClick={() => {
+                    setOpen(false);
+                  }}
+                  className="h-8 w-8 flex items-center justify-center bg-background/10 hover:bg-background/20 text-foreground hover:text-foreground/80 rounded-full transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path
+                      fillRule="evenodd"
+                      d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </motion.button>
+              </div>
+
+              <div className="py-2">
                 {LINKS.map((i) => {
                   return (
                     <Link
                       href={i.link}
                       key={i.link}
-                      className="py-3 px-4 flex  text font-semibold hover:text-blue-500"
+                      className="block py-3 px-4 text-foreground hover:text-primary hover:bg-background/10 font-medium transition-colors"
                       onClick={() => {
                         setOpen(false);
                       }}
@@ -85,20 +103,6 @@ const Sidenav = () => {
                   );
                 })}
               </div>
-              <motion.button
-                onClick={() => {
-                  setOpen(false);
-                }}
-                className="h-10 aspect-square flex items-center justify-center bg-black/10 text-black rounded-full  right-3"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                  <path
-                    fillRule="evenodd"
-                    d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </motion.button>
             </motion.div>
           </motion.div>
         )}
