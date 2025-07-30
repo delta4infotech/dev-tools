@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
+import { Menu, X } from "lucide-react";
 
 const baseUrl = "https://delta4.io"
 
@@ -27,7 +28,7 @@ const LINKS = [
 const Sidenav = () => {
   const [open, setOpen] = useState(false);
   return (
-    <div className="sm:hidden">
+    <div className="md:hidden">
       <div>
         <motion.button
           onClick={() => {
@@ -35,9 +36,7 @@ const Sidenav = () => {
           }}
           className="text-foreground bg-foreground/10 rounded-full p-2"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M20.4546 6L3.54541 6M20.4546 12H3.54541M20.4546 18L9.71265 17.8724" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-          </svg>
+          <Menu className="w-6 h-6" />
         </motion.button>
       </div>
 
@@ -77,13 +76,7 @@ const Sidenav = () => {
                   }}
                   className="h-8 w-8 flex items-center justify-center bg-background/10 hover:bg-background/20 text-foreground hover:text-foreground/80 rounded-full transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                    <path
-                      fillRule="evenodd"
-                      d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <X className="w-4 h-4" />
                 </motion.button>
               </div>
 

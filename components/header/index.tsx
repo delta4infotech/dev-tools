@@ -22,7 +22,7 @@ function NavbarLinks() {
     { link: baseUrl + "/contact", name: "Contact" },
   ];
   return (
-    <div className="hidden sm:block">
+    <div className="hidden md:block">
       <div className="flex justify-center flex-1">
         <div className="bg-background/10 border border-foreground/20 backdrop-blur-md rounded-xl flex shadow-lg p-1">
           {LINKS.map((i) => (
@@ -94,7 +94,7 @@ export default function Navbar() {
 
   return (
     <div
-      className={`fixed left-0 w-full top-0 z-[40] px-4 sm:px-6 transition-transform duration-200 ease-in-out ${isVisible ? "translate-y-0" : "-translate-y-full"
+      className={`fixed left-0 w-full top-0 z-[40] px-4 sm:px-6 transition-transform duration-200 ease-in-out bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent ${isVisible ? "translate-y-0" : "-translate-y-full"
         }`}
     >
       <div className="py-4 max-w-screen-xl mx-auto">
