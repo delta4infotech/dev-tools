@@ -232,7 +232,7 @@ export default function Footer() {
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center bottom',
-          opacity: 0.6 * scrollProgress,
+          opacity: 0.4 * scrollProgress,
           transform: `translateY(${(1 - scrollProgress) * 50}%)`,
           clipPath: `inset(${(1 - scrollProgress) * 100}% 0 0 0)`,
           transition: scrollProgress === 0 ? 'none' : 'opacity 0.1s ease-out, transform 0.1s ease-out, clip-path 0.1s ease-out',
@@ -243,15 +243,15 @@ export default function Footer() {
       <div className="absolute inset-0 w-full h-full z-5 pointer-events-none"
         style={{
           background: `
-               linear-gradient(to bottom, 
-                  rgba(0,0,0,0.9) 0%, 
-                 rgba(0,0,0,0.6) 25%, 
-                 rgba(0,0,0,0.3) 50%, 
-                 rgba(0,0,0,0.2) 70%, 
-                 rgba(0,0,0,0.1) 85%, 
-                 rgba(255,255,255,0.05) 100%
-               )
-             `
+              linear-gradient(to bottom, 
+              rgba(0,0,0,0.9) 0%, 
+              rgba(0,0,0,0.6) 25%, 
+              rgba(0,0,0,0.3) 50%, 
+              rgba(0,0,0,0.2) 70%, 
+              rgba(0,0,0,0.1) 85%, 
+              rgba(255,255,255,0.05) 100%
+            )
+          `
         }} />
 
       {/* Content */}
