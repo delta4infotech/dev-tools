@@ -16,11 +16,7 @@ interface Task {
     createdAt: Date;
 }
 
-interface SlashCommand {
-    trigger: string;
-    label: string;
-    action: (task: Task) => string;
-}
+
 
 const statusConfig = {
     not_started: { emoji: "[ ]", label: "Not Started", color: "text-gray-500" },
@@ -29,18 +25,7 @@ const statusConfig = {
     completed: { emoji: "[✅]", label: "Done", color: "text-green-500" }
 };
 
-const slashCommands: SlashCommand[] = [
-    {
-        trigger: "/branch",
-        label: "Quote Branch",
-        action: (task) => `\`${task.content}\``
-    },
-    {
-        trigger: "/PR",
-        label: "PR Reference",
-        action: () => `\`from_branch\` to \`main\``
-    }
-];
+
 
 const faqs: FAQProps[] = [
     {
@@ -50,8 +35,8 @@ const faqs: FAQProps[] = [
     },
     {
         id: "2",
-        title: "What slash commands are available?",
-        content: "Currently supports /branch for quoting branch names and /PR for pull request references. Type / followed by the command name to insert these templates."
+        title: "How do I add new tasks quickly?",
+        content: "Simply click the 'Add Task' button in the top right corner to create a new task, or press Enter while editing a task to save it."
     },
     {
         id: "3",
@@ -87,19 +72,19 @@ const examples = [
         bottomdesc: "Having organized daily tasks makes standups more productive and helps track progress throughout the day."
     },
     {
-        title: "PR and Branch Tracking",
-        description: "Keep track of which branches and pull requests you're working on with slash commands.",
+        title: "Task Organization",
+        description: "Organize your development workflow with flexible task descriptions and status tracking.",
         list: [
             {
-                title: "Branch References",
-                content: "Use /branch command to quickly reference branch names in your tasks, keeping track of which features you're developing."
+                title: "Flexible Content",
+                content: "Add any task description, branch names, PR references, or notes directly in the task content field."
             },
             {
-                title: "PR Workflow",
-                content: "Use /PR command to note pull request relationships and merging workflow between different branches."
+                title: "Status Tracking",
+                content: "Click the status emoji to cycle through not started, pending, blocker, and completed states for clear progress tracking."
             }
         ],
-        bottomdesc: "Slash commands make it easy to reference technical details without manual formatting."
+        bottomdesc: "Simple task management that adapts to your development workflow and preferences."
     },
     {
         title: "README Export",
@@ -140,38 +125,24 @@ const TaskItem = ({
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(task.content);
-    const [showSlashMenu, setShowSlashMenu] = useState(false);
+
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleContentChange = (value: string) => {
         setEditContent(value);
-
-        // Check for slash commands
-        if (value.endsWith('/')) {
-            setShowSlashMenu(true);
-        } else {
-            setShowSlashMenu(false);
-        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             onUpdate(task.id, { content: editContent });
             setIsEditing(false);
-            setShowSlashMenu(false);
         } else if (e.key === 'Escape') {
             setEditContent(task.content);
             setIsEditing(false);
-            setShowSlashMenu(false);
         }
     };
 
-    const handleSlashCommand = (command: SlashCommand) => {
-        const result = command.action(task);
-        setEditContent(editContent.slice(0, -1) + result);
-        setShowSlashMenu(false);
-        inputRef.current?.focus();
-    };
+
 
     const cycleStatus = () => {
         const statuses: TaskStatus[] = ["not_started", "pending", "blocker", "completed"];
@@ -201,30 +172,15 @@ const TaskItem = ({
                             onBlur={() => {
                                 onUpdate(task.id, { content: editContent });
                                 setIsEditing(false);
-                                setShowSlashMenu(false);
                             }}
-                            className="border-none p-0 focus-visible:ring-0 bg-transparent"
+                            className="border-none p-0 focus-visible:ring-0 bg-transparent text-foreground text-xl"
                             autoFocus
                         />
-                        {showSlashMenu && (
-                            <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-md shadow-lg z-10 min-w-[200px]">
-                                {slashCommands.map((command) => (
-                                    <button
-                                        key={command.trigger}
-                                        onClick={() => handleSlashCommand(command)}
-                                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm"
-                                    >
-                                        <span className="font-mono text-primary">{command.trigger}</span>
-                                        <span className="ml-2 text-muted-foreground">{command.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </>
                 ) : (
                     <div
                         onClick={() => setIsEditing(true)}
-                        className="cursor-text py-1 text-foreground hover:text-primary transition-colors"
+                        className="cursor-text py-1 text-foreground hover:text-primary transition-colors text-lg"
                     >
                         {task.content || "Click to add task description..."}
                     </div>
@@ -367,7 +323,9 @@ export default function Content() {
                         {/* Header Actions */}
                         <div className="flex items-center justify-between">
                             <h2 className="text-xl font-semibold text-foreground">
-                                Today&apos;s Tasks ({new Date().toLocaleDateString()})
+                                Today&apos;s Tasks (
+                                {`${String(new Date().getDate()).padStart(2, '0')}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date().getFullYear()}`}
+                                )
                             </h2>
                             <div className="flex gap-2">
                                 <Button

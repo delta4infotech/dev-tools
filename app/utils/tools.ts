@@ -1,12 +1,6 @@
 
 export const tools = [
     {
-        title: "Task Manager",
-        description: "Notion-style task manager for developers with task status tracking, PR integration, and markdown export. Perfect for daily stand-ups and progress tracking.",
-        link: "/task-manager",
-        keywords: ["task manager", "developer productivity", "notion", "task tracking", "pr tracking", "markdown export", "daily tasks", "kanban", "todo list", "task status"]
-    },
-    {
         title: "Readme Today",
         description: "Notion-style readme generator for developers with task status tracking, PR integration, and markdown export. Perfect for daily stand-ups and progress tracking.",
         link: "/readme-today",
