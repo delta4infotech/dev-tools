@@ -203,6 +203,7 @@ export default function Content() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [, setLastResetDate] = useState<string | null>(null);
     const [showResetPrompt, setShowResetPrompt] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     // Load tasks from localStorage
     useEffect(() => {
@@ -266,7 +267,7 @@ export default function Content() {
 
     const exportAsMarkdown = () => {
         const today = new Date().toLocaleDateString();
-        let markdown = `## Daily Tasks - ${today}\n\n`;
+        let markdown = `## Today's Tasks - ${today}\n\n`;
 
         if (tasks.length === 0) {
             markdown += "No tasks for today.\n";
@@ -278,6 +279,10 @@ export default function Content() {
         }
 
         navigator.clipboard.writeText(markdown);
+
+        // Set button text to "Copied" temporarily
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
 
@@ -334,7 +339,7 @@ export default function Content() {
                                     disabled={tasks.length === 0}
                                 >
                                     <Copy className="w-4 h-4 mr-2" />
-                                    Copy as Markdown
+                                    {copied ? "Copied" : "Copy as Markdown"}
                                 </Button>
                                 <Button onClick={addTask}>
                                     <Plus className="w-4 h-4 mr-2" />
@@ -352,14 +357,26 @@ export default function Content() {
                                     <p className="text-center max-w-md">No tasks yet. Click &quot;Add Task&quot; to get started with your daily workflow!</p>
                                 </div>
                             ) : (
-                                tasks.map((task) => (
-                                    <TaskItem
-                                        key={task.id}
-                                        task={task}
-                                        onUpdate={updateTask}
-                                        onDelete={deleteTask}
-                                    />
-                                ))
+                                <div className="space-y-3">
+                                    {tasks.map((task) => (
+                                        <TaskItem
+                                            key={task.id}
+                                            task={task}
+                                            onUpdate={updateTask}
+                                            onDelete={deleteTask}
+                                        />
+                                    ))}
+                                    <div className="flex justify-center">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={addTask}
+                                            className="bg-primary/10 rounded-full h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-primary/20 transition-colors"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
