@@ -163,11 +163,19 @@ export default function Navbar() {
       <motion.div
         key={pathname}
         initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{
+          opacity: 1,
+          y: isVisible ? 0 : -100
+        }}
         exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.5, ease: "easeInOut" }}
-        className={`fixed border left-0 w-full top-0 z-[40] px-4 bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent ${isVisible ? "translate-y-0" : "-translate-y-full"
-          } `}
+        transition={{
+          duration: 0.4,
+          ease: "easeInOut",
+          type: "spring",
+          stiffness: 120,
+          damping: 20
+        }}
+        className={`fixed border left-0 w-full top-0 z-[40] px-4 bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent`}
       >
         <motion.div
           className="py-4 max-w-screen-xl mx-auto"
