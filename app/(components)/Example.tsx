@@ -7,12 +7,6 @@ export interface ExampleProps {
     bottomdesc?: string;
 }
 
-const meshBackground = {
-    backgroundColor: 'hsla(8, 100%, 60%, 1)',
-    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 1799 1799' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"), radial-gradient(circle at 50% 80%, hsla(18, 100%, 65%, 1) 14%, transparent 60%), radial-gradient(circle at 80% 20%, hsla(28, 100%, 70%, 1) 10%, transparent 70%), radial-gradient(circle at 20% 40%, hsla(3, 90%, 60%, 1) 12%, transparent 75%), radial-gradient(circle at 60% 10%, hsla(14, 95%, 55%, 1) 5%, transparent 80%);`,
-    backgroundBlendMode: 'overlay, normal, normal, normal, normal' as const,
-};
-
 function Item({ title, description, list, bottomdesc, index }: ExampleProps & { index: number }) {
     const isEven = index % 2 === 0;
 
