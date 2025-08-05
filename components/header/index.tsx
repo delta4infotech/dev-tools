@@ -2,6 +2,15 @@
 import Sidenav from "./Sidenav";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { InteractiveHoverButton } from '../magicui/interactive-hover-button';
+import { Command } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function LogoSection() {
   return (
@@ -52,6 +61,53 @@ function HiringButton() {
   );
 }
 
+function ContributeButton() {
+  return (
+    <InteractiveHoverButton className="border border-foreground/20 rounded-md shadow-lg">
+      <Link href="https://github.com/delta4infotech/dev-tools" target="_blank">
+        Contribute
+      </Link>
+    </InteractiveHoverButton>
+  );
+}
+
+function CMDKIndicator() {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <kbd
+            className="inline-flex h-8 select-none items-center gap-1 rounded border bg-primary/10 px-2 font-mono text-sm font-medium text-primary"
+          >
+            <Command className="w-3 h-3" />
+            <span>K</span>
+          </kbd>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Press cmd/ctrl+k on keyboard to search tools</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// Utility function to check if we're on a tool page
+function useIsToolPage() {
+  const pathname = usePathname();
+
+  const toolPages = [
+    'base64-encoder-and-decoder',
+    'code-comparator',
+    'find-and-replace',
+    'json-code-formatter',
+    'jwt-token-encoder-and-decoder',
+    'readme-today',
+    'uri-encode-decode'
+  ];
+
+  return toolPages.some(tool => pathname.includes(tool));
+}
+
 function useScrollDirection() {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -91,18 +147,28 @@ function useScrollDirection() {
 
 export default function Navbar() {
   const isVisible = useScrollDirection();
+  const isToolPage = useIsToolPage();
 
   return (
     <div
-      className={`fixed left-0 w-full top-0 z-[40] px-4 sm:px-6 transition-transform duration-200 ease-in-out bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent ${isVisible ? "translate-y-0" : "-translate-y-full"
-        }`}
+      className={`fixed border left-0 w-full top-0 z-[40] px-4 transition-transform duration-200 ease-in-out bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent ${isVisible ? "translate-y-0" : "-translate-y-full"
+        } `}
     >
       <div className="py-4 max-w-screen-xl mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between min-h-[48px]">
           <LogoSection />
-          <NavbarLinks />
+          {!isToolPage && <NavbarLinks />}
           <div className="flex items-center gap-3">
-            <HiringButton />
+            <div className="hidden md:flex items-center gap-3 py-4">
+              {isToolPage ? (
+                <>
+                  <ContributeButton />
+                  <CMDKIndicator />
+                </>
+              ) : (
+                <HiringButton />
+              )}
+            </div>
             <Sidenav />
           </div>
         </div>
