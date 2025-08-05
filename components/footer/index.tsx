@@ -78,7 +78,7 @@ const CompanySection = () => (
       <div className="w-40 h-10 flex items-center justify-start">
         <img src="/dev-tools/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
       </div>
-      <p className="text-foreground/70 text-sm font-medium pl-4 mt-2 leading-relaxed">
+      <p className="text-foreground/90 text-sm font-medium pl-4 mt-2 leading-relaxed">
         Find us on social media
       </p>
     </div>
@@ -101,7 +101,7 @@ const QuickLinksSection = () => (
         <Link
           key={link.id}
           href={link.url}
-          className="block text-foreground/70 hover:text-foreground duration-300 text-sm font-medium hover:translate-x-2 transform transition-all hover:text-primary/90 group"
+          className="block text-foreground/90 duration-300 text-sm font-medium hover:translate-x-2 transform transition-all hover:text-primary/90 group"
         >
           <span className="relative">
             {link.label}
@@ -124,7 +124,7 @@ const ContactSection = () => (
         href="https://goo.gl/maps/1biUvQXKisRpcMGS6"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-start gap-4 text-foreground/70 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
+        className="flex items-start gap-4 text-foreground/90 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
       >
         <div className="flex-shrink-0 w-5 h-5 mt-0.5 flex items-center justify-center">
           <HiOutlineLocationMarker className="w-5 h-5 group-hover:text-primary transition-colors group-hover:scale-110 transform duration-300" />
@@ -137,7 +137,7 @@ const ContactSection = () => (
 
       <Link
         href="mailto:contact@delta4infotech.com"
-        className="flex items-center gap-4 text-foreground/70 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
+        className="flex items-center gap-4 text-foreground/90 hover:text-foreground transition-all duration-300 group hover:translate-x-1"
       >
         <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
           <HiOutlineMail className="w-5 h-5 group-hover:text-primary transition-colors group-hover:scale-110 transform duration-300" />
@@ -147,7 +147,7 @@ const ContactSection = () => (
         </span>
       </Link>
 
-      <div className="flex items-center gap-4 text-foreground/70 group">
+      <div className="flex items-center gap-4 text-foreground/90 group">
         <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
           <HiOutlinePhone className="w-5 h-5 group-hover:text-primary transition-colors" />
         </div>
