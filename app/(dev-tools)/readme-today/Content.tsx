@@ -267,14 +267,14 @@ export default function Content() {
 
     const exportAsMarkdown = () => {
         const today = new Date().toLocaleDateString();
-        let markdown = `## Today's Tasks - ${today}\n\n`;
+        let markdown = `## Tasks for ${today}\n\n`;
 
         if (tasks.length === 0) {
             markdown += "No tasks for today.\n";
         } else {
             tasks.forEach(task => {
                 const status = statusConfig[task.status];
-                markdown += `${status.emoji} ${task.content}\n`;
+                markdown += `${status.emoji} ${task.content}\n\n`;
             });
         }
 
