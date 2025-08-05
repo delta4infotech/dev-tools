@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { motion } from "motion/react";
 
 function LogoSection() {
   return (
@@ -109,7 +110,9 @@ function useIsToolPage() {
   return toolPages.some(tool => pathname.includes(tool));
 }
 
-function useScrollDirection() {
+// Updated scroll hook with glassmorphic effect
+function useScrollPosition() {
+  const [scrollY, setScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
@@ -121,8 +124,12 @@ function useScrollDirection() {
         requestAnimationFrame(() => {
           const currentScrollY = window.scrollY;
 
-          if (currentScrollY > lastScrollY) {
-            // Scrolling down - hide immediately
+          // Update scroll position for glassmorphic effect
+          setScrollY(currentScrollY);
+
+          // Visibility logic (hide on scroll down, show on scroll up)
+          if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            // Scrolling down - hide after 100px
             setIsVisible(false);
           } else if (currentScrollY < lastScrollY) {
             // Scrolling up - show
@@ -137,25 +144,34 @@ function useScrollDirection() {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  return isVisible;
+  return { isVisible, scrollY };
 }
 
 export default function Navbar() {
-  const isVisible = useScrollDirection();
+  const { isVisible, scrollY } = useScrollPosition();
   const isToolPage = useIsToolPage();
+
+  // Calculate glassmorphic effect based on scroll position
+  const isScrolled = scrollY > 50;
 
   return (
     <div
       className={`fixed border left-0 w-full top-0 z-[40] px-4 transition-transform duration-200 ease-in-out bg-background/10 backdrop-blur-md shadow-md border-b border-foreground/10 md:border-none md:shadow-none md:backdrop-blur-none md:bg-transparent ${isVisible ? "translate-y-0" : "-translate-y-full"
         } `}
     >
-      <div className="py-4 max-w-screen-xl mx-auto">
+      <motion.div
+        className="py-4 max-w-screen-xl mx-auto"
+        animate={{
+          backgroundColor: isToolPage && isScrolled ? "rgba(0, 0, 0, 0.2)" : "transparent",
+          backdropFilter: isToolPage && isScrolled ? "blur(12px)" : "none",
+          boxShadow: isToolPage && isScrolled ? "0 4px 6px -1px rgba(0, 0, 0, 0.1)" : "none",
+          borderBottom: isToolPage && isScrolled ? "1px solid rgba(255, 255, 255, 0.2)" : "none",
+          padding: isToolPage && isScrolled ? "1rem" : "0",
+        }}
+        transition={{ duration: 0.15, ease: "easeInOut" }}>
         <div className="flex items-center justify-between min-h-[48px]">
           <LogoSection />
           {!isToolPage && <NavbarLinks />}
@@ -173,7 +189,7 @@ export default function Navbar() {
             <Sidenav />
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
