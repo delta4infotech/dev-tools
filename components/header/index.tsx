@@ -102,7 +102,8 @@ function useIsToolPage() {
     'json-code-formatter',
     'jwt-token-encoder-and-decoder',
     'readme-today',
-    'uri-encode-decode'
+    'uri-encode-decode',
+    'linkedin-text-formatter'
   ];
 
   return toolPages.some(tool => pathname.includes(tool));
