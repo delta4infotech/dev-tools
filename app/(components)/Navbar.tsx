@@ -36,7 +36,7 @@ export default function Navbar() {
                     <Link href="/">
                         <div className="flex items-center justify-center gap-2">
                             <Image
-                                src="/dev-tools/delta4-icon-footer.svg"
+                                src="/delta4-icon-footer.svg"
                                 width={30}
                                 height={30}
                                 alt="Delta4 Logo"
@@ -49,7 +49,7 @@ export default function Navbar() {
                     {/* Right side actions */}
                     <div className="flex items-center gap-3">
                         <InteractiveHoverButton className=" border border-foreground/20 rounded-md shadow-lg">
-                            <Link href="https://github.com/delta4infotech/dev-tools" target="_blank">
+                            <Link href="https://github.com/delta4infotech/tools" target="_blank">
                                 Contribute
                             </Link>
                         </InteractiveHoverButton>

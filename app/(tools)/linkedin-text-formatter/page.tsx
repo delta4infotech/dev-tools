@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "LinkedIn Text Formatter - Format Posts with Bold, Italic & Professional Styling",
         description: "Free LinkedIn text formatter tool. Make your LinkedIn posts stand out with bold, italic, underline, and special formatting. Create professional-looking posts that boost engagement and visibility.",
-        url: "https://delta4.io/dev-tools/linkedin-text-formatter",
+        url: "https://delta4.io/tools/linkedin-text-formatter",
         siteName: "Dev Tools",
         images: [
             {

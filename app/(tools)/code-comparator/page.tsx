@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Code Comparator - Compare Code Differences with Line-by-Line Analysis",
         description: "Free online code comparison tool. Compare two versions of code side by side with detailed difference highlighting. No registration required, completely private and secure.",
-        url: "https://delta4.io/dev-tools/code-comparator",
+        url: "https://delta4.io/tools/code-comparator",
         siteName: "Dev Tools",
         images: [
             {

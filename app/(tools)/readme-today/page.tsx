@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Readme Today - Notion-style Developer Productivity Tool",
         description: "Free online readme generator for developers with task status tracking, PR integration, and markdown export. Perfect for daily stand-ups and progress tracking.",
-        url: "https://delta4.io/dev-tools/readme-today",
+        url: "https://delta4.io/tools/readme-today",
         siteName: "Dev Tools",
         images: [
             {

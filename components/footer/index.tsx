@@ -52,7 +52,7 @@ const NAVIGATION_LINKS = [
   { id: 2, label: "Life at Delta4", url: baseUrl + "/careers" },
   { id: 3, label: "About Us", url: baseUrl + "/about" },
   { id: 4, label: "Blog", url: baseUrl + "/blog" },
-  { id: 5, label: "Dev Tools", url: baseUrl + "/dev-tools" },
+  { id: 5, label: "Free Tools", url: baseUrl + "/tools" },
   { id: 6, label: "Contact Us", url: baseUrl + "/contact" },
 ];
 
@@ -76,7 +76,7 @@ const CompanySection = () => (
   <div className="flex-1 max-w-sm space-y-6">
     <div className="space-y-4 flex flex-col items-start justify-start">
       <div className="w-40 h-10 flex items-center justify-start">
-        <img src="/dev-tools/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
+        <img src="/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
       </div>
       <p className="text-foreground/90 text-sm font-medium pl-4 mt-2 leading-relaxed">
         Find us on social media
@@ -228,7 +228,7 @@ export default function Footer() {
       <div className="absolute inset-0 w-full h-full pointer-events-none"
         aria-hidden="true"
         style={{
-          backgroundImage: 'url("/dev-tools/footer-bg.png")',
+          backgroundImage: 'url("/footer-bg.png")',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center bottom',
@@ -267,7 +267,7 @@ export default function Footer() {
       <div className="relative flex items-center justify-center w-full h-full z-20 pointer-events-none select-none" aria-hidden="true">
         <div className="relative">
           <img
-            src="/dev-tools/delta4-icon-footer.svg"
+            src="/delta4-icon-footer.svg"
             alt="Delta4 watermark"
             className="w-18 md:w-38 opacity-40 object-contain mix-blend-soft-light transition-opacity duration-500 filter drop-shadow-sm pb-2"
           />

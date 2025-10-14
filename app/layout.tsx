@@ -37,9 +37,9 @@ export const metadata: Metadata = {
   creator: 'Delta4',
   publisher: 'Delta4',
   icons: {
-    icon: '/dev-tools/delta4-icon-footer.svg',
-    shortcut: '/dev-tools/delta4-icon-footer.svg',
-    apple: '/dev-tools/delta4-icon-footer.svg',
+    icon: '/delta4-icon-footer.svg',
+    shortcut: '/delta4-icon-footer.svg',
+    apple: '/delta4-icon-footer.svg',
   },
   robots: {
     index: true,
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://delta4.io/dev-tools',
+    url: 'https://delta4.io/tools',
     title: 'Dev Tools | Delta4',
     description: 'Boost your productivity with our collection of free, web-based developer tools. Format JavaScript, TypeScript, JSX, and JSON code instantly. No downloads required.',
     siteName: 'Delta4',
@@ -76,7 +76,7 @@ export const metadata: Metadata = {
     creator: '@delta4io',
   },
   alternates: {
-    canonical: 'https://delta4.io/dev-tools',
+    canonical: 'https://delta4.io/tools',
   },
   category: 'technology',
 };

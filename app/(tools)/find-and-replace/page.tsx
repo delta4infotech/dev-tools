@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Find & Replace Tool - Powerful Text Search and Replace with Regex Support",
         description: "Free online find and replace tool with regex support, case sensitivity, and word matching. Replace text efficiently with real-time highlighting and match counting.",
-        url: "https://delta4.io/dev-tools/find-and-replace",
+        url: "https://delta4.io/tools/find-and-replace",
         siteName: "Dev Tools",
         images: [
             {

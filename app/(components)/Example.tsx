@@ -53,7 +53,7 @@ function Item({ title, description, list, bottomdesc, index }: ExampleProps & { 
                         className="w-full h-64 lg:h-80 rounded-xl shadow-lg hover:scale-101 transition-all duration-300"
                         // style={meshBackground}
                         style={{
-                            background: 'url("/dev-tools/example-bg.png")',
+                            background: 'url("/example-bg.png")',
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             backgroundRepeat: 'no-repeat',

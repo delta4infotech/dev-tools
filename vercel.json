@@ -1,0 +1,14 @@
+{
+  "redirects": [
+    {
+      "source": "/dev-tools",
+      "destination": "/tools",
+      "permanent": true
+    },
+    {
+      "source": "/dev-tools/:path*",
+      "destination": "/tools/:path*",
+      "permanent": true
+    }
+  ]
+}

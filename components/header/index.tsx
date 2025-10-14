@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "motion/react";
 function LogoSection() {
   return (
     <Link href="/">
-      <img src="/dev-tools/delta-logo.svg" className="h-[32px] sm:h-[40px]" alt="Delta4 Logo" width={150} height={150} />
+      <img src="/delta-logo.svg" className="h-[32px] sm:h-[40px]" alt="Delta4 Logo" width={150} height={150} />
     </Link>
   );
 }
@@ -65,7 +65,7 @@ function HiringButton() {
 function ContributeButton() {
   return (
     <InteractiveHoverButton className="border border-foreground/20 rounded-md shadow-lg">
-      <Link href="https://github.com/delta4infotech/dev-tools" target="_blank">
+      <Link href="https://github.com/delta4infotech/tools" target="_blank">
         Contribute
       </Link>
     </InteractiveHoverButton>

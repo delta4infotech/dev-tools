@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "JSON Formatter - Format, Validate & Beautify JSON Data",
         description: "Free online JSON formatter, validator and beautifier. Format your JSON data instantly with proper indentation and syntax highlighting. No registration required, completely private and secure.",
-        url: "https://delta4.io/dev-tools/json-code-formatter",
+        url: "https://delta4.io/tools/json-code-formatter",
         siteName: "Dev Tools",
         images: [
             {

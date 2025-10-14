@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "URI Encode Decode - Free Online URL Encoder & Decoder Tool",
         description: "Free online URI encoder and decoder tool for developers. Instantly encode/decode URLs, handle special characters, and process data safely in your browser.",
-        url: "https://delta4.io/dev-tools/uri-encode-decode",
+        url: "https://delta4.io/tools/uri-encode-decode",
         siteName: "Dev Tools",
         images: [
             {
