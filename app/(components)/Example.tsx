@@ -1,4 +1,5 @@
 import React from 'react';
+import { getAssetPath } from '@/lib/utils/assetPath';
 
 export interface ExampleProps {
     title: string;
@@ -53,7 +54,7 @@ function Item({ title, description, list, bottomdesc, index }: ExampleProps & { 
                         className="w-full h-64 lg:h-80 rounded-xl shadow-lg hover:scale-101 transition-all duration-300"
                         // style={meshBackground}
                         style={{
-                            background: 'url("/example-bg.png")',
+                            background: `url("${getAssetPath('/example-bg.png')}")`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             backgroundRepeat: 'no-repeat',

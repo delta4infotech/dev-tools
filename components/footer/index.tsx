@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FaLinkedin, FaYoutube, FaFacebook, FaGithub, FaXTwitter } from "react-icons/fa6";
 import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker } from "react-icons/hi";
+import { getAssetPath } from "@/lib/utils/assetPath";
 
 
 const baseUrl = "https://delta4.io"
@@ -76,7 +77,7 @@ const CompanySection = () => (
   <div className="flex-1 max-w-sm space-y-6">
     <div className="space-y-4 flex flex-col items-start justify-start">
       <div className="w-40 h-10 flex items-center justify-start">
-        <img src="/delta-logo.svg" alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
+        <img src={getAssetPath("/delta-logo.svg")} alt="Delta4 Infotech" className="w-full h-full object-contain filter brightness-110" />
       </div>
       <p className="text-foreground/90 text-sm font-medium pl-4 mt-2 leading-relaxed">
         Find us on social media
@@ -228,7 +229,7 @@ export default function Footer() {
       <div className="absolute inset-0 w-full h-full pointer-events-none"
         aria-hidden="true"
         style={{
-          backgroundImage: 'url("/footer-bg.png")',
+          backgroundImage: `url("${getAssetPath('/footer-bg.png')}")`,
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center bottom',
@@ -267,7 +268,7 @@ export default function Footer() {
       <div className="relative flex items-center justify-center w-full h-full z-20 pointer-events-none select-none" aria-hidden="true">
         <div className="relative">
           <img
-            src="/delta4-icon-footer.svg"
+            src={getAssetPath("/delta4-icon-footer.svg")}
             alt="Delta4 watermark"
             className="w-18 md:w-38 opacity-40 object-contain mix-blend-soft-light transition-opacity duration-500 filter drop-shadow-sm pb-2"
           />
