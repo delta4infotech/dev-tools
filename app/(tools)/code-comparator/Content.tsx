@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Copy, BrushCleaning } from "lucide-react";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
+import RelatedTools from "../../(components)/RelatedTools";
+import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 import * as Diff from "diff";
 
 const faqs = [
@@ -130,12 +132,30 @@ const Examples = ({ examples }: { examples: ExampleProps[] }) => {
     )
 }
 
+const relatedTools = [
+    {
+        title: "Find & Replace",
+        description: "Quickly find and replace text in code with ease.",
+        link: "/find-and-replace"
+    },
+    {
+        title: "JSON Code Formatter",
+        description: "Format and validate JSON with proper indentation and syntax highlighting.",
+        link: "/json-code-formatter"
+    },
+    {
+        title: "JS Object to JSON Converter",
+        description: "Convert JavaScript objects to valid JSON format instantly.",
+        link: "/js-object-to-json"
+    }
+];
+
 const Header = () => {
     return (
         <div className="w-full bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-foreground">Code Comparator</h1>
-                <p className="text-sm text-muted-foreground text-center">Compare code versions and visualize differences with line-by-line analysis.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Compare code versions and visualize differences with line-by-line analysis.</p>
             </div>
         </div>
     )
@@ -497,11 +517,17 @@ export default function Content() {
                 </div>
             </div>
 
+            {/* Keyboard Shortcut Hint */}
+            <KeyboardShortcutHint />
+
             {/* Examples Section */}
             <Examples examples={examples} />
 
             {/* FAQs Section */}
             <FAQs faqs={faqs} />
+
+            {/* Related Tools Section */}
+            <RelatedTools tools={relatedTools} />
         </>
     );
 }

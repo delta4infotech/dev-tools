@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { Button } from "@/components/ui/button";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -11,125 +12,111 @@ import RelatedTools from "../../(components)/RelatedTools";
 import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 import ToolHeader from "../../(components)/ToolHeader";
 
-const faqs = [
+const faqs: FAQProps[] = [
     {
         id: "1",
-        title: "What makes this JSON formatter different from others?",
+        title: "What's the difference between a JS object and JSON?",
         content:
-            "This JSON formatter prioritizes privacy and simplicity. It processes your JSON data entirely client-side without storing any data, provides instant formatting without requiring accounts or uploads, and is completely free and open source.",
+            "JavaScript objects can contain functions, undefined values, and use single quotes. JSON is a strict data format that only supports strings, numbers, booleans, arrays, objects, and null. This tool converts valid JavaScript object literals to proper JSON format.",
     },
     {
         id: "2",
-        title: "Is my JSON data stored or saved anywhere?",
+        title: "Is my code stored or saved anywhere?",
         content:
-            "No, absolutely not. This formatter processes everything locally in your browser. Your JSON data never leaves your device, ensuring complete privacy and security of your sensitive data.",
+            "No, absolutely not. This converter processes everything locally in your browser. Your JavaScript code never leaves your device, ensuring complete privacy and security.",
     },
     {
         id: "3",
-        title: "Can I format large JSON files?",
+        title: "Can I convert objects with functions?",
         content:
-            "Yes, the formatter can handle large JSON files efficiently. Since it runs entirely in your browser without network requests, formatting speed depends only on your device's performance.",
+            "Functions and undefined values will be omitted from the JSON output since JSON doesn't support them. Only serializable data (strings, numbers, booleans, arrays, objects, null) will be converted.",
     },
     {
         id: "4",
-        title: "What if my JSON is invalid?",
+        title: "What if my JavaScript object is invalid?",
         content:
-            "The formatter will display an error message if your JSON is invalid, helping you identify syntax errors like missing commas, brackets, or quotes. This makes it a useful tool for debugging JSON syntax.",
+            "The converter will display an error message if your JavaScript object has syntax errors or can't be evaluated. Make sure to paste valid JavaScript object syntax.",
     },
     {
         id: "5",
-        title: "Can I customize the indentation?",
+        title: "Can I use single quotes in my JS object?",
         content:
-            "Currently, the formatter uses 2-space indentation by default. Future versions may include configurable options for indentation size and other formatting preferences.",
+            "Yes! JavaScript objects support both single and double quotes. The converter will automatically convert everything to proper JSON format with double quotes.",
     },
     {
         id: "6",
-        title: "Does the formatter preserve my JSON structure?",
+        title: "Does it work with nested objects and arrays?",
         content:
-            "Yes, the formatter only modifies whitespace, indentation, and formatting without changing your JSON data structure or values. It's designed to be safe for production use.",
+            "Yes, the converter handles deeply nested objects and arrays without any limitations. Complex data structures are fully supported.",
     }
-]
+];
 
-const examples = [
+const examples: ExampleProps[] = [
     {
-        title: "API Response Data Formatting",
-        description: "Format API responses and data structures for better readability and debugging.",
+        title: "API Response Conversion",
+        description: "Convert JavaScript object literals from code to valid JSON for API testing or documentation.",
         list: [
             {
                 title: "Before",
-                content: "A compressed API response with nested user data, settings, and arrays all on one line making it impossible to understand the data structure and relationships."
+                content: "A JavaScript object with single quotes, trailing commas, and mixed formatting that needs to be converted to valid JSON for API requests."
             },
             {
                 title: "After",
-                content: "The same API response with proper indentation, clear object hierarchy, and readable nested structures that make data relationships and values obvious."
+                content: "A properly formatted JSON string with double quotes, no trailing commas, and correct indentation ready for API consumption."
             },
         ],
-        bottomdesc: "Properly formatted JSON makes API responses easier to understand and debug, especially when working with complex nested objects and arrays."
+        bottomdesc: "Perfect for converting hardcoded JS objects in your code to JSON format for API testing tools like Postman or curl."
     },
     {
-        title: "Configuration File Beautification",
-        description: "Transform minified configuration files into readable, well-structured JSON documents.",
+        title: "Configuration to JSON",
+        description: "Transform JavaScript configuration objects into JSON format for config files.",
         list: [
             {
                 title: "Before",
-                content: "A minified config file with database settings, application parameters, and nested configurations all compressed into a single line without any formatting."
+                content: "A JavaScript config object with single quotes and shorthand properties that needs to be converted to a JSON config file."
             },
             {
                 title: "After",
-                content: "The same configuration with proper indentation, organized sections, and clear hierarchy that makes it easy to modify settings and understand the structure."
+                content: "A valid JSON configuration file with proper double quotes and formatting ready to be saved and used in your project."
             },
         ],
-        bottomdesc: "Well-formatted configuration files are easier to maintain, debug, and modify without introducing syntax errors."
+        bottomdesc: "Easily convert JavaScript config objects to JSON format for use in package.json, tsconfig.json, or other configuration files."
     },
     {
-        title: "Data Export Formatting",
-        description: "Format exported data for better presentation and analysis.",
+        title: "Data Export",
+        description: "Convert JavaScript object literals to JSON for data export or storage.",
         list: [
             {
                 title: "Before",
-                content: "Exported data with complex nested objects, arrays of user records, and metadata all compressed without proper spacing or structure."
+                content: "JavaScript object data with complex nested structures, arrays, and mixed quote styles that needs to be exported."
             },
             {
                 title: "After",
-                content: "The same exported data with clear object hierarchy, readable nested structures, and proper indentation that makes data analysis and review much easier."
+                content: "Clean, valid JSON output with consistent formatting perfect for saving to files or storing in databases."
             },
         ],
-        bottomdesc: "Formatted data exports are easier to review, analyze, and share with team members or stakeholders."
-    },
-    {
-        title: "JSON Schema Validation",
-        description: "Format and validate JSON schemas for better documentation and development.",
-        list: [
-            {
-                title: "Before",
-                content: "A compressed JSON schema with complex type definitions, validation rules, and nested properties all on one line creating confusion about the expected data structure."
-            },
-            {
-                title: "After",
-                content: "The same schema with proper line breaks, aligned properties, readable nested objects, and clear type annotations that document the expected data structure."
-            },
-        ],
-        bottomdesc: "Well-formatted JSON schemas improve documentation and make complex data structures much easier to understand and implement."
+        bottomdesc: "Quickly convert data structures from your JavaScript code to JSON format for export, storage, or transmission."
     }
-]
+];
 
 const relatedTools = [
     {
-        title: "JS Object to JSON Converter",
-        description: "Convert JavaScript objects to valid JSON format instantly.",
-        link: "/js-object-to-json"
+        title: "JSON Code Formatter",
+        description: "Format and validate JSON with proper indentation and syntax highlighting.",
+        link: "/json-code-formatter"
     },
     {
-        title: "Code Comparator",
-        description: "Compare two code versions side by side with detailed difference highlighting.",
-        link: "/code-comparator"
+        title: "Base64 Encoder & Decoder",
+        description: "Quickly encode and decode Base64 strings for data transmission.",
+        link: "/base64-encoder-and-decoder"
     },
     {
-        title: "Find & Replace",
-        description: "Quickly find and replace text in code with ease.",
-        link: "/find-and-replace"
+        title: "JWT Token Encoder & Decoder",
+        description: "Encode and decode JWT tokens with detailed payload inspection.",
+        link: "/jwt-token-encoder-and-decoder"
     }
 ];
+
 
 const FAQs = ({ faqs }: { faqs: FAQProps[] }) => {
     return (
@@ -139,8 +126,8 @@ const FAQs = ({ faqs }: { faqs: FAQProps[] }) => {
                 <FAQ faqs={faqs} />
             </div>
         </div>
-    )
-}
+    );
+};
 
 const Examples = ({ examples }: { examples: ExampleProps[] }) => {
     return (
@@ -150,48 +137,44 @@ const Examples = ({ examples }: { examples: ExampleProps[] }) => {
                 <Example examples={examples} />
             </div>
         </div>
-    )
-}
-
+    );
+};
 
 export default function Content() {
-    const [inputJSON, setInputJSON] = useState('{ "name":"Alice","age": 30,"city":"New York","professions":["developer","musician"]}');
-    const [formattedJSON, setFormattedJSON] = useState('');
+    const [inputJS, setInputJS] = useState(`{ name: 'Alice', age: 30, city: 'New York', professions: ['developer', 'musician'] }`);
+    const [outputJSON, setOutputJSON] = useState('');
     const [editorHeight, setEditorHeight] = useState('500px');
     const [fontSize, setFontSize] = useState(14);
 
     // Calculate dynamic height and font size for CodeMirror
     useEffect(() => {
         const calculateHeight = () => {
-            const headerHeight = 80; // Approximate header height
-            const buttonHeight = 60; // Approximate button area height
-            const padding = 64; // Padding (py-8 = 32px top + 32px bottom)
-            const margin = 64; // Margin (mb-16 = 64px)
-            const labelHeight = 50; // Space for labels to be visible
-            const bottomBuffer = 20; // Extra buffer to ensure labels are fully visible
+            const headerHeight = 80;
+            const buttonHeight = 60;
+            const padding = 64;
+            const margin = 64;
+            const labelHeight = 50;
+            const bottomBuffer = 20;
 
-            // Calculate available height ensuring labels are always visible
             const availableHeight = window.innerHeight - headerHeight - buttonHeight - padding - margin - labelHeight - bottomBuffer;
 
-            // Enhanced sizing for very large displays
             let minHeight, maxHeightPercent;
 
-            if (window.innerWidth >= 2560) { // 4K and ultra-wide displays
+            if (window.innerWidth >= 2560) {
                 minHeight = 1000;
                 maxHeightPercent = 0.85;
-            } else if (window.innerWidth >= 1920) { // Large displays
+            } else if (window.innerWidth >= 1920) {
                 minHeight = 850;
                 maxHeightPercent = 0.80;
-            } else if (window.innerWidth >= 1440) { // Medium-large displays
+            } else if (window.innerWidth >= 1440) {
                 minHeight = 750;
                 maxHeightPercent = 0.75;
-            } else { // Smaller displays
+            } else {
                 minHeight = 550;
                 maxHeightPercent = 0.75;
             }
 
             const maxHeight = window.innerHeight * maxHeightPercent;
-
             return Math.max(Math.min(availableHeight, maxHeight), minHeight);
         };
 
@@ -199,25 +182,22 @@ export default function Content() {
             const width = window.innerWidth;
             const height = window.innerHeight;
 
-            // Enhanced font size calculation for very large displays
             let baseSize = 14;
 
-            if (width >= 3840) baseSize = 20; // 4K ultra-wide displays
-            else if (width >= 2560) baseSize = 18; // 4K and ultra-wide displays
-            else if (width >= 1920) baseSize = 16; // Large displays
-            else if (width >= 1440) baseSize = 15; // Medium-large screens
-            else if (width >= 1024) baseSize = 14; // Medium screens
-            else if (width >= 768) baseSize = 13; // Small-medium screens
-            else baseSize = 12; // Mobile screens
+            if (width >= 3840) baseSize = 20;
+            else if (width >= 2560) baseSize = 18;
+            else if (width >= 1920) baseSize = 16;
+            else if (width >= 1440) baseSize = 15;
+            else if (width >= 1024) baseSize = 14;
+            else if (width >= 768) baseSize = 13;
+            else baseSize = 12;
 
-            // Enhanced height-based adjustments for very large displays
-            if (height >= 1440) baseSize = Math.min(baseSize + 2, 22); // Very tall displays
-            else if (height >= 1080) baseSize = Math.min(baseSize + 1, 20); // Tall displays
-            else if (height < 600) baseSize = Math.max(baseSize - 1, 11); // Short displays
+            if (height >= 1440) baseSize = Math.min(baseSize + 2, 22);
+            else if (height >= 1080) baseSize = Math.min(baseSize + 1, 20);
+            else if (height < 600) baseSize = Math.max(baseSize - 1, 11);
 
-            // Additional zoom-level detection (larger viewport = likely zoomed out)
             const viewportArea = width * height;
-            if (viewportArea > 4000000) { // Very large viewport area
+            if (viewportArea > 4000000) {
                 baseSize = Math.min(baseSize + 1, 22);
             }
 
@@ -229,41 +209,50 @@ export default function Content() {
             setFontSize(calculateFontSize());
         };
 
-        // Set initial dimensions
         updateDimensions();
-
-        // Update on window resize
         window.addEventListener('resize', updateDimensions);
         return () => window.removeEventListener('resize', updateDimensions);
     }, []);
 
-    const handleFormat = () => {
+    const handleConvert = () => {
         try {
-            // Parse and stringify with proper indentation
-            const parsed = JSON.parse(inputJSON);
-            const formatted = JSON.stringify(parsed, null, 2);
-            setFormattedJSON(formatted);
+            // Wrap the input in parentheses and evaluate it as a JS expression
+            // This allows both {key: value} and const obj = {key: value} formats
+            let jsObject;
+
+            // Try to evaluate as a direct object literal first
+            try {
+                jsObject = eval(`(${inputJS})`);
+            } catch {
+                // If that fails, try evaluating as is (might be a statement)
+                jsObject = eval(inputJS);
+            }
+
+            // Convert to JSON with formatting
+            const jsonOutput = JSON.stringify(jsObject, null, 2);
+            setOutputJSON(jsonOutput);
         } catch (error) {
-            setFormattedJSON(`Error: ${(error as Error).message}`);
+            setOutputJSON(`Error: ${(error as Error).message}\n\nPlease ensure your input is a valid JavaScript object.`);
         }
     };
 
     const handleClear = () => {
-        setInputJSON('');
-        setFormattedJSON('');
+        setInputJS('');
+        setOutputJSON('');
     };
 
     return (
         <>
             <ToolHeader
-                title="JSON Formatter"
-                description="Format, validate and beautify your JSON data instantly."
+                title="JS Object to JSON Converter"
+                description="Convert JavaScript objects to valid JSON format instantly."
             />
             {/* Main Tool Content */}
             <div className="flex-1 bg-background w-full h-full">
-                <div className="mx-auto px-4 md:px-10  py-8">
-                    {/* JSON Editor */}
+                <div className="mx-auto px-4 md:px-10 py-8">
+                    {/* Editor Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-16">
+                        {/* Input Editor */}
                         <div className="flex flex-col">
                             <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
                                 <div className="bg-[#282c34] p-2 flex justify-end gap-2">
@@ -278,7 +267,7 @@ export default function Content() {
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        onClick={() => navigator.clipboard.writeText(inputJSON)}
+                                        onClick={() => navigator.clipboard.writeText(inputJS)}
                                         className="px-3 py-1.5 h-8 text-sm"
                                         size="sm"
                                     >
@@ -287,10 +276,10 @@ export default function Content() {
                                     </Button>
                                 </div>
                                 <CodeMirror
-                                    value={inputJSON}
+                                    value={inputJS}
                                     height={`calc(${editorHeight} - 40px)`}
-                                    extensions={[json()]}
-                                    onChange={setInputJSON}
+                                    extensions={[javascript()]}
+                                    onChange={setInputJS}
                                     theme={oneDark}
                                     basicSetup={{
                                         lineNumbers: true,
@@ -302,27 +291,28 @@ export default function Content() {
                                 />
                             </div>
                             <div className="text-sm font-medium mt-3 text-muted-foreground text-center">
-                                JSON Input
+                                JavaScript Object Input
                             </div>
                         </div>
 
-                        {/* Format Button Between Editors */}
+                        {/* Convert Button Between Editors (Desktop) */}
                         <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 transform -mt-8">
                             <Button
-                                onClick={handleFormat}
+                                onClick={handleConvert}
                                 className="px-6 py-2.5 font-medium rounded-full shadow-md"
                             >
                                 <ArrowRightLeft className="w-4 h-4 mr-2" />
-                                Format
+                                Convert
                             </Button>
                         </div>
 
+                        {/* Output Editor */}
                         <div className="flex flex-col">
                             <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
                                 <div className="bg-[#282c34] p-2 flex justify-end gap-2">
                                     <Button
                                         variant="outline"
-                                        onClick={() => setFormattedJSON('')}
+                                        onClick={() => setOutputJSON('')}
                                         className="px-3 py-1.5 h-8 text-sm"
                                         size="sm"
                                     >
@@ -331,7 +321,7 @@ export default function Content() {
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        onClick={() => navigator.clipboard.writeText(formattedJSON)}
+                                        onClick={() => navigator.clipboard.writeText(outputJSON)}
                                         className="px-3 py-1.5 h-8 text-sm"
                                         size="sm"
                                     >
@@ -340,7 +330,7 @@ export default function Content() {
                                     </Button>
                                 </div>
                                 <CodeMirror
-                                    value={formattedJSON}
+                                    value={outputJSON}
                                     height={`calc(${editorHeight} - 40px)`}
                                     extensions={[json()]}
                                     readOnly
@@ -355,18 +345,19 @@ export default function Content() {
                                 />
                             </div>
                             <div className="text-sm font-medium mt-3 text-muted-foreground text-center">
-                                Formatted JSON
+                                JSON Output
                             </div>
                         </div>
                     </div>
-                    {/* Mobile Format Button */}
+
+                    {/* Mobile Convert Button */}
                     <div className="flex lg:hidden justify-center mb-6">
                         <Button
-                            onClick={handleFormat}
+                            onClick={handleConvert}
                             className="px-6 py-2.5 font-medium"
                         >
                             <ArrowRightLeft className="w-4 h-4 mr-2" />
-                            Format
+                            Convert
                         </Button>
                     </div>
                 </div>

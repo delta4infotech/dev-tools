@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Copy, Plus, Trash2, Calendar, ChevronDown, History, X } from "lucide-react";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example from "../../(components)/Example";
+import RelatedTools from "../../(components)/RelatedTools";
+import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 
 // Task status types
 type TaskStatus = "not_started" | "pending" | "blocker" | "completed";
@@ -108,12 +110,30 @@ const examples = [
     }
 ];
 
+const relatedTools = [
+    {
+        title: "LinkedIn Text Formatter",
+        description: "Format LinkedIn posts with professional styling to boost engagement.",
+        link: "/linkedin-text-formatter"
+    },
+    {
+        title: "Find & Replace",
+        description: "Quickly find and replace text in code with ease.",
+        link: "/find-and-replace"
+    },
+    {
+        title: "Code Comparator",
+        description: "Compare two code versions side by side with detailed difference highlighting.",
+        link: "/code-comparator"
+    }
+];
+
 const Header = () => {
     return (
         <div className="w-full bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-foreground">README Today</h1>
-                <p className="text-sm text-muted-foreground text-center">Notion-style task manager with markdown export for developers.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Notion-style task manager with markdown export for developers.</p>
             </div>
         </div>
     );
@@ -598,6 +618,17 @@ export default function Content() {
                 </div>
             </div>
 
+            {/* Keyboard Shortcut Hint */}
+            <KeyboardShortcutHint />
+
+            {/* Examples Section */}
+            <div className="w-full py-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6">
+                    <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center text-foreground">Examples & Use Cases</h2>
+                    <Example examples={examples} />
+                </div>
+            </div>
+
             {/* FAQs Section */}
             <div className="w-full bg-background py-16">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -605,6 +636,9 @@ export default function Content() {
                     <FAQ faqs={faqs} />
                 </div>
             </div>
+
+            {/* Related Tools Section */}
+            <RelatedTools tools={relatedTools} />
         </>
     );
 }

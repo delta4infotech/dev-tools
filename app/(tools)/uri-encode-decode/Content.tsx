@@ -8,6 +8,8 @@ import { Copy, BrushCleaning, Lock, Unlock } from "lucide-react";
 import { EditorView } from "@codemirror/view";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
+import RelatedTools from "../../(components)/RelatedTools";
+import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 
 const faqs = [
     {
@@ -133,12 +135,30 @@ const Examples = ({ examples }: { examples: ExampleProps[] }) => {
     )
 }
 
+const relatedTools = [
+    {
+        title: "Base64 Encoder & Decoder",
+        description: "Quickly encode and decode Base64 strings for data transmission.",
+        link: "/base64-encoder-and-decoder"
+    },
+    {
+        title: "JWT Token Encoder & Decoder",
+        description: "Encode and decode JWT tokens with detailed payload inspection.",
+        link: "/jwt-token-encoder-and-decoder"
+    },
+    {
+        title: "Find & Replace",
+        description: "Quickly find and replace text in code with ease.",
+        link: "/find-and-replace"
+    }
+];
+
 const Header = () => {
     return (
         <div className="w-full bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-foreground">URI Encoder & Decoder</h1>
-                <p className="text-sm text-muted-foreground text-center">Encode and decode text to URI format securely in your browser.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Encode and decode text to URI format securely in your browser.</p>
             </div>
         </div>
     )
@@ -499,11 +519,17 @@ export default function Content() {
                 </div>
             </div>
 
+            {/* Keyboard Shortcut Hint */}
+            <KeyboardShortcutHint />
+
             {/* Examples Section */}
             <Examples examples={examples} />
 
             {/* FAQs Section */}
             <FAQs faqs={faqs} />
+
+            {/* Related Tools Section */}
+            <RelatedTools tools={relatedTools} />
         </>
     );
 }

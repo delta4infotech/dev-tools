@@ -102,6 +102,7 @@ function useIsToolPage() {
     'code-comparator',
     'find-and-replace',
     'json-code-formatter',
+    'js-object-to-json',
     'jwt-token-encoder-and-decoder',
     'readme-today',
     'uri-encode-decode',

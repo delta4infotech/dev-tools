@@ -6,6 +6,8 @@ import { Copy, RotateCcw, Search, Replace, CaseSensitive, WholeWord, Regex } fro
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
+import RelatedTools from "../../(components)/RelatedTools";
+import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 
 const faqs = [
     {
@@ -152,12 +154,30 @@ const Examples = ({ examples }: { examples: ExampleProps[] }) => {
     )
 }
 
+const relatedTools = [
+    {
+        title: "Code Comparator",
+        description: "Compare two code versions side by side with detailed difference highlighting.",
+        link: "/code-comparator"
+    },
+    {
+        title: "JSON Code Formatter",
+        description: "Format and validate JSON with proper indentation and syntax highlighting.",
+        link: "/json-code-formatter"
+    },
+    {
+        title: "URI Encoder & Decoder",
+        description: "Efficiently encode and decode URIs for web applications.",
+        link: "/uri-encode-decode"
+    }
+];
+
 const Header = () => {
     return (
         <div className="w-full bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-foreground">Find & Replace Tool</h1>
-                <p className="text-sm text-muted-foreground text-center">Powerful text search and replace with regex support, highlighting, and advanced options.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Powerful text search and replace with regex support, highlighting, and advanced options.</p>
             </div>
         </div>
     )
@@ -679,11 +699,17 @@ const data = {
                 </div>
             </div>
 
+            {/* Keyboard Shortcut Hint */}
+            <KeyboardShortcutHint />
+
             {/* Examples Section */}
             <Examples examples={examples} />
 
             {/* FAQs Section */}
             <FAQs faqs={faqs} />
+
+            {/* Related Tools Section */}
+            <RelatedTools tools={relatedTools} />
         </TooltipProvider>
     );
 }

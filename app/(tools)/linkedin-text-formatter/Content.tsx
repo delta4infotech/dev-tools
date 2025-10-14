@@ -6,6 +6,8 @@ import { Copy, BrushCleaning, Bold, Italic, Underline, Strikethrough, Type } fro
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
 import SocialCard from "../../(components)/Social-Card";
+import RelatedTools from "../../(components)/RelatedTools";
+import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 
 // Unicode conversion functions
 const formatText = {
@@ -145,12 +147,30 @@ const examples: ExampleProps[] = [
     }
 ];
 
+const relatedTools = [
+    {
+        title: "Find & Replace",
+        description: "Quickly find and replace text in code with ease.",
+        link: "/find-and-replace"
+    },
+    {
+        title: "Code Comparator",
+        description: "Compare two code versions side by side with detailed difference highlighting.",
+        link: "/code-comparator"
+    },
+    {
+        title: "Readme Today",
+        description: "Notion-style readme generator with task tracking and markdown export.",
+        link: "/readme-today"
+    }
+];
+
 const Header = () => {
     return (
         <div className="w-full bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <h1 className="text-2xl md:text-3xl font-bold text-center text-foreground">LinkedIn Text Formatter</h1>
-                <p className="text-sm text-muted-foreground text-center">Format your LinkedIn posts with bold, italic, and professional styling to boost engagement.</p>
+                <p className="text-sm text-muted-foreground text-center mt-2">Format your LinkedIn posts with bold, italic, and professional styling to boost engagement.</p>
             </div>
         </div>
     )
@@ -359,11 +379,17 @@ export default function Content() {
                 </div>
             </div>
 
+            {/* Keyboard Shortcut Hint */}
+            <KeyboardShortcutHint />
+
             {/* Examples Section */}
             <Examples examples={examples} />
 
             {/* FAQs Section */}
             <FAQs faqs={faqs} />
+
+            {/* Related Tools Section */}
+            <RelatedTools tools={relatedTools} />
         </>
     );
 }

@@ -46,5 +46,11 @@ export const tools = [
         description: "Format LinkedIn posts with bold, italic, underline, and professional styling to boost engagement and stand out in the feed.",
         link: "/linkedin-text-formatter",
         keywords: ["linkedin text formatter", "linkedin post formatter", "linkedin bold text", "linkedin italic text", "linkedin formatting", "social media formatting", "linkedin post styling", "linkedin engagement", "professional posting", "linkedin content"]
+    },
+    {
+        title: "JS Object to JSON Converter",
+        description: "Convert JavaScript objects to valid JSON format instantly. Handles nested objects, arrays, and complex data structures with ease.",
+        link: "/js-object-to-json",
+        keywords: ["js object to json", "javascript to json", "object to json converter", "js to json online", "convert javascript to json", "javascript object converter", "json converter", "object literal to json", "js object converter"]
     }
 ];
