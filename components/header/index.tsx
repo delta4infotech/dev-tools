@@ -160,6 +160,11 @@ export default function Navbar() {
   // Calculate glassmorphic effect based on scroll position
   const isScrolled = scrollY > 50;
 
+<<<<<<< HEAD
+  if (pathname.includes("/image-studio")) return null;
+
+=======
+>>>>>>> 4ee7be73cea724ad4f21eb96377eaf8b17cda28f
   return (
     <AnimatePresence mode="wait">
       <motion.div
