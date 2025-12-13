@@ -1,11 +1,7 @@
 import { appContent } from "@/utils/variants";
 import Cards from "../(components)/Cards";
 import { tools } from "../utils/tools";
-<<<<<<< HEAD
 
-=======
-import { CodeXml } from "lucide-react";
->>>>>>> 4ee7be73cea724ad4f21eb96377eaf8b17cda28f
 import Header from "../(components)/Header";
 
 export default function Content() {
@@ -21,11 +17,7 @@ export default function Content() {
                             title={tool.title}
                             description={tool.description}
                             link={tool.link}
-<<<<<<< HEAD
                             icon={tool.icon}
-=======
-                            icon={<CodeXml className="w-5 h-5" />}
->>>>>>> 4ee7be73cea724ad4f21eb96377eaf8b17cda28f
                         />
                     ))}
                 </div>
