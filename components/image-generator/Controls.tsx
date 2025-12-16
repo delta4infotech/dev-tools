@@ -33,9 +33,9 @@ import { ColorPicker } from "./ui/ColorPicker";
 export const PRESET_BACKGROUNDS = [
   { name: "Aura", url: "https://assets.delta4infotech.com/tools/bg-studio/Aura.png" },
   { name: "Ripple", url: "https://assets.delta4infotech.com/tools/bg-studio/Ripple.png" },
-  { name: "Abstract", url: "https://assets.delta4infotech.com/tools/bg-studio/Abstract.png" },
-  { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-studio/Nebula.png" },
-  { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-studio/Nature.png" },
+  { name: "Abstract", url: "https://assets.delta4infotech.com/tools/bg-studio/abstract.jpeg" },
+  { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-studio/nebula.png" },
+  { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-studio/nature.jpeg" },
   { name: "Meadow", url: "https://assets.delta4infotech.com/tools/bg-studio/Meadow.png" },
 ];
 
