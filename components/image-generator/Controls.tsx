@@ -31,12 +31,12 @@ import { Slider } from "./ui/Slider";
 import { ColorPicker } from "./ui/ColorPicker";
 
 export const PRESET_BACKGROUNDS = [
-  { name: "Aura", url: "https://assets.delta4infotech.com/tools/bg-beautify/Aura.png" },
-  { name: "Ripple", url: "https://assets.delta4infotech.com/tools/bg-beautify/Ripple.png" },
-  { name: "Abstract", url: "https://assets.delta4infotech.com/tools/bg-beautify/Abstract.png" },
-  { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-beautify/Nebula.png" },
-  { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-beautify/Nature.png" },
-  { name: "Meadow", url: "https://assets.delta4infotech.com/tools/bg-beautify/Meadow.png" },
+  { name: "Aura", url: "https://assets.delta4infotech.com/tools/bg-studio/Aura.png" },
+  { name: "Ripple", url: "https://assets.delta4infotech.com/tools/bg-studio/Ripple.png" },
+  { name: "Abstract", url: "https://assets.delta4infotech.com/tools/bg-studio/Abstract.png" },
+  { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-studio/Nebula.png" },
+  { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-studio/Nature.png" },
+  { name: "Meadow", url: "https://assets.delta4infotech.com/tools/bg-studio/Meadow.png" },
 ];
 
 const AspectRatioButton: React.FC<{

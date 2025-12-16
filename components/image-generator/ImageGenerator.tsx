@@ -458,7 +458,7 @@ export default function ImageGenerator() {
     {
       id: "default-foreground",
       name: "YourGPT",
-      src: "https://assets.delta4infotech.com/tools/bg-beautify/YourGPT.png",
+      src: "https://assets.delta4infotech.com/tools/bg-studio/yourgpt-dashboard.png",
     },
   ]);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(0);
