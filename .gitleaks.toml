@@ -1,0 +1,61 @@
+# Gitleaks configuration for dev-tools
+# This config scans for secrets and blocks .env files (except .env.example)
+
+title = "Gitleaks config for dev-tools"
+
+# Use all default secret detection rules for API keys, tokens, secrets, etc.
+[extend]
+useDefault = true
+
+# Block .env files - .env.example is excluded via global allowlist
+[[rules]]
+id = "env-files-blocker"
+description = "Block .env files from being committed (except .env.example)"
+regex = '''.*'''
+path = '''\.env.*'''
+tags = ["env", "config"]
+
+# Additional custom rules for common secrets
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{20,}'''
+tags = ["api-key", "openai"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)["\s:=]+[a-zA-Z0-9_\-]{20,}'''
+tags = ["api-key", "secret"]
+
+[[rules]]
+id = "bearer-token"
+description = "Bearer Token"
+regex = '''(?i)bearer\s+[a-zA-Z0-9_\-\.=]+'''
+tags = ["token", "auth"]
+
+[[rules]]
+id = "jwt-token"
+description = "JWT Token"
+regex = '''eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+'''
+tags = ["jwt", "token"]
+
+# Global allowlist - patterns that should always be ignored
+[allowlist]
+description = "Global allowlist for safe files"
+paths = [
+    '''\.gitleaks\.toml$''',
+    '''\.env\.example$''',
+    '''package-lock\.json$''',
+    '''yarn\.lock$''',
+    '''pnpm-lock\.yaml$''',
+    '''README\.md$''',
+    '''\.md$''',
+]
+regexes = [
+    '''example''',
+    '''sample''',
+    '''test''',
+    '''mock''',
+    '''dummy''',
+]
