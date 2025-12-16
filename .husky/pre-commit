@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# Gitleaks Pre-Commit Hook (via Husky)
+# This hook scans staged files for secrets and blocks .env files
+#
+
+# Add homebrew to PATH for non-interactive shells
+export PATH="/opt/homebrew/bin:$PATH"
+
+echo "🔍 Running Gitleaks to check for secrets and blocked files..."
+
+# Check if gitleaks is installed
+if ! command -v gitleaks &> /dev/null; then
+    echo ""
+    echo "❌ ERROR: Gitleaks is not installed!"
+    echo ""
+    echo "To install gitleaks:"
+    echo "  macOS:   brew install gitleaks"
+    echo "  Linux:   https://github.com/gitleaks/gitleaks#installing"
+    echo "  Windows: https://github.com/gitleaks/gitleaks#installing"
+    echo ""
+    echo "After installing, try committing again."
+    exit 1
+fi
+
+# Run gitleaks on staged changes only
+gitleaks protect --staged --verbose --config=.gitleaks.toml
+
+if [ $? -eq 1 ]; then
+    echo ""
+    echo "❌ COMMIT BLOCKED: Gitleaks detected secrets or blocked files!"
+    echo ""
+    echo "Common issues:"
+    echo "  • .env files (except .env.example) are blocked"
+    echo "  • API keys, tokens, or secrets detected"
+    echo ""
+    echo "To fix:"
+    echo "  1. Remove sensitive data from staged files"
+    echo "  2. Use .env.example instead of .env files"
+    echo "  3. Add false positives to .gitleaks.toml allowlist"
+    echo ""
+    echo "To bypass this check (NOT RECOMMENDED):"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Gitleaks scan passed! No secrets detected."
+exit 0
