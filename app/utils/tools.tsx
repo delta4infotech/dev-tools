@@ -16,7 +16,7 @@ export const tools = [
     {
         title: "Image Studio",
         description: "Create and edit beautiful images with noise, gradients, and text.",
-        link: "/image-studio",
+        link: "/bg-studio",
         keywords: ["image generator", "image editor", "gradients", "noise", "text editor", "image creation", "social media images", "background generator"],
         icon: <Palette className="w-5 h-5" />
     },
