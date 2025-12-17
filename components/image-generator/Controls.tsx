@@ -37,6 +37,9 @@ export const PRESET_BACKGROUNDS = [
   { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-studio/nebula.png" },
   { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-studio/nature.jpeg" },
   { name: "Meadow", url: "https://assets.delta4infotech.com/tools/bg-studio/Meadow.png" },
+  { name: "Gradient 1", url: "https://assets.delta4infotech.com/tools/bg-studio/yourgpt-bg-1.png" },
+  { name: "Grainy Gradient 1", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-2.png" },
+  { name: "Grainy Gradient 2", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-3.jpg" },
 ];
 
 const AspectRatioButton: React.FC<{
@@ -211,7 +214,7 @@ export const Controls: React.FC<ControlsProps> = (props) => {
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Tools
         </Link>
-        <h1 className="text-2xl font-bold text-neutral-100">Image Studio</h1>
+        <h1 className="text-2xl font-bold text-neutral-100">BG Studio</h1>
         <p className="text-base text-neutral-400 mt-1">Create your visual content.</p>
       </div>
 
