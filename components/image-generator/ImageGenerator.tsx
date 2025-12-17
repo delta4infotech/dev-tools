@@ -980,7 +980,7 @@ export default function ImageGenerator() {
   return (
     <div className="h-screen overflow-hidden bg-black text-neutral-100 font-sans flex flex-col lg:flex-row">
       <header className="p-4 border-b border-neutral-800 lg:hidden">
-        <h1 className="text-xl font-semibold text-center">Image Studio</h1>
+        <h1 className="text-xl font-semibold text-center">BG Studio</h1>
       </header>
       <aside className="w-full lg:w-[380px] xl:w-[400px] bg-neutral-900/70 backdrop-blur-sm p-6 border-r border-neutral-800 overflow-y-auto order-2 lg:order-1">
         <Controls
