@@ -37,9 +37,9 @@ export const PRESET_BACKGROUNDS = [
   { name: "Nebula", url: "https://assets.delta4infotech.com/tools/bg-studio/nebula.png" },
   { name: "Nature", url: "https://assets.delta4infotech.com/tools/bg-studio/nature.jpeg" },
   { name: "Meadow", url: "https://assets.delta4infotech.com/tools/bg-studio/Meadow.png" },
-  { name: "Gradient", url: "https://assets.delta4infotech.com/tools/bg-studio/yourgpt-bg-1.png" },
-  { name: "Gradient", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-2.png" },
-  { name: "Gradient", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-3.jpg" },
+  { name: "Gradient 1", url: "https://assets.delta4infotech.com/tools/bg-studio/yourgpt-bg-1.png" },
+  { name: "Grainy Gradient 1", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-2.png" },
+  { name: "Grainy Gradient 2", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-3.jpg" },
 ];
 
 const AspectRatioButton: React.FC<{
