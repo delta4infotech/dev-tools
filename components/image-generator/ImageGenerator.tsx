@@ -5,11 +5,12 @@ import { ImagePreview } from "./ImagePreview";
 import { generateRandomGradient, gradientToString } from "./utils/gradient";
 import type { AspectRatio, Gradient, ImageSettings, BackgroundEffects, TextEffects, TextObject, Selection, UploadedImage, DrawingMode, ArrowObject, CounterObject, RedactObject, ShapeObject, CanvasObject } from "./types";
 import { FONTS } from "./templates";
-import { Type, Undo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon } from "./icons";
+import { Type, Undo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon, Move } from "./icons";
 import * as htmlToImage from "html-to-image";
 import JSZip from "jszip";
 import { Slider } from "./ui/Slider";
 import { ColorPicker } from "./ui/ColorPicker";
+import { DevModeModal } from "./DevModeModal";
 
 const DEFAULT_BACKGROUND_EFFECTS: BackgroundEffects = {
   noiseOpacity: 0.29,
@@ -28,6 +29,20 @@ const DEFAULT_TEXT_EFFECTS: TextEffects = {
   shadow: { color: "#000000", offsetX: 2, offsetY: 4, blur: 10, opacity: 0.3 },
   stroke: { color: "#000000", width: 0 },
   blur: 0,
+};
+
+const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
+  padding: 10,
+  scale: 1,
+  shadow: 20,
+  corners: 6,
+  alignment: "bottom-center",
+  glassmorphicBorder: {
+    enabled: true,
+    opacity: 0.83,
+    size: 6,
+    color: "#ffffff",
+  },
 };
 
 const createInitialText = (): TextObject => ({
@@ -398,6 +413,10 @@ const AnnotationToolbar: React.FC<{
       <ToolbarButton onClick={() => setDrawingMode(drawingMode === "counter" ? null : "counter")} isActive={drawingMode === "counter"} title="Add Counter">
         <CounterIcon className="w-5 h-5" />
       </ToolbarButton>
+      <div className="w-px h-6 bg-white/10 mx-1"></div>
+      <ToolbarButton onClick={() => setDrawingMode(drawingMode === "move" ? null : "move")} isActive={drawingMode === "move"} title="Move Image (Hand Mode)">
+        <Move className="w-5 h-5" />
+      </ToolbarButton>
       <ToolbarButton onClick={() => setDrawingMode(drawingMode === "arrow" ? null : "arrow")} isActive={drawingMode === "arrow"} title="Draw Arrow">
         <ArrowUpRight className="w-5 h-5" />
       </ToolbarButton>
@@ -462,19 +481,29 @@ export default function ImageGenerator() {
     },
   ]);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(0);
-  const [imageSettings, setImageSettings] = useState<ImageSettings>({
-    padding: 10,
-    scale: 1,
-    shadow: 20,
-    corners: 6,
-    alignment: "bottom-center",
-    glassmorphicBorder: {
-      enabled: true,
-      opacity: 0.83,
-      size: 6,
-      color: "#ffffff",
-    },
-  });
+  const handleImageSettingChange = <K extends keyof ImageSettings>(key: K, value: ImageSettings[K]) => {
+    if (key === "alignment") {
+      setUploadedImages((prevImages) => prevImages.map(img => ({ ...img, x: undefined, y: undefined })));
+      setImageSettings((prev) => ({ ...prev, [key]: value, x: undefined, y: undefined }));
+    } else {
+      setImageSettings((prev) => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const onUpdateImage = useCallback((id: string, updates: Partial<UploadedImage>) => {
+    setUploadedImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+  }, []);
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
+
+  useEffect(() => {
+    console.log("ImageSettings Changed:", imageSettings);
+  }, [imageSettings]);
+
+  useEffect(() => {
+    console.log("ImageGenerator MOUNTED");
+    return () => console.log("ImageGenerator UNMOUNTED");
+  }, []);
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -501,6 +530,25 @@ export default function ImageGenerator() {
   useEffect(() => {
     previewRefs.current = previewRefs.current.slice(0, uploadedImages.length);
   }, [uploadedImages.length]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const defaultBg = PRESET_BACKGROUNDS.find((bg) => bg.name === "Ripple")?.url || null;
+      const isDirty =
+        history.length > 0 ||
+        uploadedImages.length !== 1 ||
+        uploadedImages[0].id !== "default-foreground" ||
+        backgroundImage !== defaultBg;
+
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [history.length, uploadedImages, backgroundImage]);
 
   const pushToHistory = useCallback(() => {
     setHistory((prev) => [...prev, { texts: allTexts, arrows: allArrows, counters: allCounters, redactions: allRedactions, shapes: allShapes }]);
@@ -1013,6 +1061,37 @@ export default function ImageGenerator() {
           hasTextOnCanvas={hasTextOnCanvas}
           drawingMode={drawingMode}
           setDrawingMode={setDrawingMode}
+          onDevModeClick={() => setIsDevMode(true)}
+          isManualPosition={(() => {
+            if (activeImageIndex === null) return false;
+            const img = uploadedImages[activeImageIndex];
+            return img?.x !== undefined && img?.y !== undefined;
+          })()}
+          onResetPosition={() => {
+            if (activeImageIndex !== null) {
+              setUploadedImages((prev) => prev.map((img, i) =>
+                i === activeImageIndex ? { ...img, x: undefined, y: undefined } : img
+              ));
+              // Also ensure global settings match the reset, though primarily driven by uploadedImages now
+              setImageSettings((prev) => ({ ...prev, x: undefined, y: undefined }));
+            }
+          }}
+          onImageUpload={(file) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              if (e.target?.result && typeof e.target.result === "string") {
+                const newImage: UploadedImage = {
+                  id: `img-${Date.now()}`,
+                  src: e.target.result,
+                  name: file.name.replace(/\.[^/.]+$/, ""),
+                };
+                setUploadedImages((prev) => [...prev, newImage]);
+                setActiveImageIndex(uploadedImages.length);
+                setAllTexts((prev) => ({ ...prev, [uploadedImages.length]: [] }));
+              }
+            };
+            reader.readAsDataURL(file);
+          }}
         />
       </aside>
       <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-black/50 relative order-1 lg:order-2 overflow-hidden">
@@ -1042,6 +1121,8 @@ export default function ImageGenerator() {
                       backgroundEffects={backgroundEffects}
                       textEffects={textEffects}
                       uploadedImage={image.src}
+                      uploadedImageObj={image}
+                      onUpdateImage={onUpdateImage}
                       imageSettings={imageSettings}
                       texts={allTexts[index] || []}
                       arrows={allArrows[index] || []}
@@ -1073,6 +1154,7 @@ export default function ImageGenerator() {
                       onSetEditing={handleSetEditing}
                       drawingMode={drawingMode}
                       setDrawingMode={setDrawingMode}
+                      onImageSettingsChange={handleImageSettingChange}
                     />
                   </div>
                 ))}
@@ -1083,7 +1165,7 @@ export default function ImageGenerator() {
                   ref={singlePreviewRef}
                   canvasKey={-1}
                   isActive={true}
-                  onActivate={() => {}}
+                  onActivate={() => { }}
                   previewContainerRef={previewContainerRef}
                   aspectRatio={aspectRatio}
                   backgroundValue={backgroundValue}
@@ -1091,8 +1173,11 @@ export default function ImageGenerator() {
                   backgroundEffects={backgroundEffects}
                   textEffects={textEffects}
                   uploadedImage={null}
+                  uploadedImageObj={null}
+                  onUpdateImage={onUpdateImage}
                   imageSettings={imageSettings}
-                  texts={allTexts[-1] || []}
+                  drawingMode={drawingMode}
+                  texts={allTexts[activeImageIndex ?? -1] || []}
                   arrows={allArrows[-1] || []}
                   counters={allCounters[-1] || []}
                   redactions={allRedactions[-1] || []}
@@ -1116,6 +1201,7 @@ export default function ImageGenerator() {
                   onShapeUpdate={(id, props) => handleShapeUpdate(-1, id, props)}
                   onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(-1, id, props)}
                   onShapeDelete={(id) => handleShapeDelete(-1, id)}
+                  onImageSettingsChange={handleImageSettingChange}
                   selection={selection}
                   onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
                   editing={editing}
@@ -1158,6 +1244,20 @@ export default function ImageGenerator() {
         </AnnotationToolbar>
         <ZoomControl zoom={canvasZoom} setZoom={setCanvasZoom} />
       </main>
+      <DevModeModal
+        isOpen={isDevMode}
+        onClose={() => setIsDevMode(false)}
+        config={{
+          imageSettings,
+          backgroundEffects,
+          gradient,
+        }}
+        onApply={(newConfig: any) => {
+          if (newConfig.imageSettings) setImageSettings(newConfig.imageSettings);
+          if (newConfig.backgroundEffects) setBackgroundEffects(newConfig.backgroundEffects);
+          if (newConfig.gradient) setGradient(newConfig.gradient);
+        }}
+      />
     </div>
   );
 }

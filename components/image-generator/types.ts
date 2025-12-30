@@ -24,6 +24,8 @@ export interface ImageSettings {
         size: number;
         color: string;
     };
+    x?: number;
+    y?: number;
 }
 
 export interface BackgroundEffects {
@@ -127,9 +129,11 @@ export interface UploadedImage {
     id: string;
     src: string;
     name: string;
+    x?: number;
+    y?: number;
 }
 
-export type DrawingMode = 'arrow' | 'redact' | 'shape' | 'counter' | null;
+export type DrawingMode = 'arrow' | 'redact' | 'shape' | 'counter' | 'move' | null;
 
 export interface ControlsProps {
     aspectRatio: AspectRatio;
@@ -149,6 +153,8 @@ export interface ControlsProps {
     uploadedImages: UploadedImage[];
     activeImageIndex: number | null;
     setActiveImageIndex: React.Dispatch<React.SetStateAction<number | null>>;
+    isManualPosition?: boolean;
+    onResetPosition: () => void;
     handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     removeUploadedImage: (index: number) => void;
     removeAllUploadedImages: () => void;
@@ -161,6 +167,8 @@ export interface ControlsProps {
     hasTextOnCanvas: boolean;
     drawingMode: DrawingMode;
     setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
+    onDevModeClick: () => void;
+    onImageUpload: (file: File) => void;
 }
 
 export interface ImagePreviewProps {
@@ -172,7 +180,11 @@ export interface ImagePreviewProps {
     backgroundEffects: BackgroundEffects;
     textEffects: TextEffects;
     uploadedImage: string | null;
+    uploadedImageObj: UploadedImage | null;
+    onUpdateImage: (id: string, updates: Partial<UploadedImage>) => void;
+
     imageSettings: ImageSettings;
+
     texts: TextObject[];
     arrows: ArrowObject[];
     onTextUpdate: (id: string, props: Partial<Omit<TextObject, 'id'>>) => void;
@@ -197,6 +209,7 @@ export interface ImagePreviewProps {
     onShapeUpdate: (id: string, props: Partial<Omit<ShapeObject, 'id' | 'type'>>) => void;
     onShapeUpdateWithHistory: (id: string, props: Partial<Omit<ShapeObject, 'id' | 'type'>>) => void;
     onShapeDelete: (id: string) => void;
+    onImageSettingsChange: <K extends keyof ImageSettings>(key: K, value: ImageSettings[K]) => void;
     selection: Selection | null;
     onSelectObject: (canvasKey: number, id: string | null, type: 'text' | 'arrow' | 'counter' | 'redact' | 'shape') => void;
     editing: Selection | null;

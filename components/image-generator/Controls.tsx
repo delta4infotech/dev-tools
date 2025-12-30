@@ -19,10 +19,11 @@ import {
   Code,
   Lock,
   Unlock,
+  Monitor,
   ChevronUp,
   ArrowLeft,
 } from "./icons";
-import { DevModeModal } from "./DevModeModal";
+
 import Link from "next/link";
 import { PRESET_PALETTES } from "./palettes";
 import { getHarmoniousColor } from "./utils/color";
@@ -50,9 +51,8 @@ const AspectRatioButton: React.FC<{
 }> = ({ label, value, currentValue, onClick }) => (
   <button
     onClick={() => onClick(value)}
-    className={`flex-1 p-2 text-sm rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:ring-blue-500 ${
-      value === currentValue ? "bg-blue-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
-    }`}
+    className={`flex-1 p-2 text-sm rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:ring-blue-500 ${value === currentValue ? "bg-blue-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+      }`}
   >
     {label}
   </button>
@@ -148,6 +148,8 @@ export const Controls: React.FC<ControlsProps> = (props) => {
     uploadedImages,
     activeImageIndex,
     setActiveImageIndex,
+    isManualPosition,
+    onResetPosition,
     handleFileUpload,
     removeUploadedImage,
     removeAllUploadedImages,
@@ -156,20 +158,17 @@ export const Controls: React.FC<ControlsProps> = (props) => {
     onDownloadZip,
     isDownloading,
     setBackgroundImage,
+    onDevModeClick,
+    onImageUpload,
   } = props;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
   const [openAccordionItems, setOpenAccordionItems] = useState(["foreground", "background"]);
   const [activeBackgroundTab, setActiveBackgroundTab] = useState<"color" | "image">("color");
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
-  const [isDevModeOpen, setIsDevModeOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleDevModeApply = (newConfig: any) => {
-    if (newConfig.imageSettings) setImageSettings(newConfig.imageSettings);
-    if (newConfig.backgroundEffects) setBackgroundEffects(newConfig.backgroundEffects);
-    if (newConfig.gradient) setGradient(newConfig.gradient);
-  };
+
 
   useEffect(() => {
     if (uploadedImages.length > 0) {
@@ -205,10 +204,39 @@ export const Controls: React.FC<ControlsProps> = (props) => {
     setBackgroundEffects((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleScreenshot = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: "browser" },
+      });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.onloadedmetadata = async () => {
+        await video.play();
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const file = new File([blob], `screenshot-${Date.now()}.png`, { type: "image/png" });
+              onImageUpload(file);
+            }
+          }, "image/png");
+        }
+        stream.getTracks().forEach((track) => track.stop());
+      };
+    } catch (err) {
+      console.error("Error taking screenshot:", err);
+    }
+  };
+
   const isPaddingDisabled = imageSettings.alignment !== "middle-center";
 
   return (
-    <div className="flex flex-col space-y-6 h-full">
+    <div className="flex flex-col space-y-6 min-h-full">
       <div className="hidden lg:block px-1">
         <Link href="/" className="inline-flex items-center text-sm text-neutral-400 hover:text-white mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1" />
@@ -239,9 +267,8 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                       <div key={index} className="relative group flex-none">
                         <button
                           onClick={() => setActiveImageIndex(index)}
-                          className={`w-20 h-20 rounded-xl overflow-hidden focus:outline-none ring-2 ring-offset-2 ring-offset-neutral-900 transition-all ${
-                            activeImageIndex === index ? "ring-blue-500" : "ring-transparent hover:ring-neutral-600"
-                          }`}
+                          className={`w-20 h-20 rounded-xl overflow-hidden focus:outline-none ring-2 ring-offset-2 ring-offset-neutral-900 transition-all ${activeImageIndex === index ? "ring-blue-500" : "ring-transparent hover:ring-neutral-600"
+                            }`}
                           aria-label={`Select image ${index + 1}`}
                         >
                           <img src={image.src} className="w-full h-full object-cover" alt={`Uploaded thumbnail ${index + 1}`} />
@@ -260,9 +287,13 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={handleUploadClick} className="flex items-center justify-center space-x-2 w-full p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors duration-200 text-sm font-medium">
                     <Upload className="w-4 h-4" />
-                    <span>Add More</span>
+                    <span>Upload</span>
                   </button>
-                  <button onClick={removeAllUploadedImages} className="flex items-center justify-center space-x-2 w-full p-2 bg-neutral-800 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors duration-200 text-sm font-medium">
+                  <button onClick={handleScreenshot} className="flex items-center justify-center space-x-2 w-full p-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors duration-200 text-sm font-medium">
+                    <Monitor className="w-4 h-4" />
+                    <span>Screenshot</span>
+                  </button>
+                  <button onClick={removeAllUploadedImages} className="col-span-2 flex items-center justify-center space-x-2 w-full p-2 bg-neutral-800 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors duration-200 text-sm font-medium">
                     <Trash2 className="w-4 h-4" />
                     <span>Remove All</span>
                   </button>
@@ -276,15 +307,39 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                   <SliderControl label="Scale" value={imageSettings.scale} onChange={(v) => handleImageSettingChange("scale", v)} min={0.1} max={2} step={0.01} />
                   <SliderControl label="Shadow" value={imageSettings.shadow} onChange={(v) => handleImageSettingChange("shadow", v)} max={100} />
                   <SliderControl label="Corners" value={imageSettings.corners} onChange={(v) => handleImageSettingChange("corners", v)} max={200} unit="px" />
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">Alignment</label>
-                    <div className="grid grid-cols-3 gap-1 w-fit bg-neutral-800 p-1 rounded-lg">
-                      {ALIGNMENT_OPTIONS.map(({ value, icon: Icon }) => (
-                        <button key={value} onClick={() => handleImageSettingChange("alignment", value)} className={`p-2 rounded-md transition-colors ${imageSettings.alignment === value ? "bg-blue-600" : "hover:bg-neutral-700"}`}>
-                          <Icon className="w-5 h-5 mx-auto text-white" />
-                        </button>
-                      ))}
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Alignment</label>
+                      {isManualPosition && (
+                        <span className="text-[10px] text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                          Manual Position
+                        </span>
+                      )}
                     </div>
+
+                    {isManualPosition ? (
+                      <div className="p-4 rounded-xl bg-neutral-900/50 border border-neutral-800 text-center space-y-3">
+                        <p className="text-sm text-neutral-400">Position set manually</p>
+                        <button
+                          className="w-full h-8 px-3 rounded-md text-xs border border-dashed border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800 text-neutral-300 transition-colors"
+                          onClick={onResetPosition}
+                        >
+                          Reset to Alignment
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 w-24">
+                        {['top-left', 'top-center', 'top-right', 'middle-left', 'middle-center', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right'].map((align) => (
+                          <button
+                            key={align}
+                            className={`w-6 h-6 p-0 rounded-md border border-neutral-800 flex items-center justify-center transition-colors ${imageSettings.alignment === align ? 'bg-blue-600 border-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'}`}
+                            onClick={() => handleImageSettingChange('alignment', align as any)}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full ${imageSettings.alignment === align ? 'bg-white' : 'bg-neutral-600'}`} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -470,7 +525,7 @@ export const Controls: React.FC<ControlsProps> = (props) => {
       <div className="p-4 border-t border-neutral-800 space-y-4 bg-neutral-900/50 backdrop-blur-sm fixed bottom-0 left-0 right-0 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:bg-transparent lg:border-none lg:p-0">
         <div className="flex space-x-3 mb-3">
           <button
-            onClick={() => setIsDevModeOpen(true)}
+            onClick={onDevModeClick}
             className="flex-1 flex items-center justify-center space-x-2 p-2 bg-transparent hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition-all duration-200 border border-neutral-800 hover:border-neutral-700 group text-sm font-medium"
           >
             <Code className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -515,17 +570,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
           </div>
         </div>
       </div>
-
-      <DevModeModal
-        isOpen={isDevModeOpen}
-        onClose={() => setIsDevModeOpen(false)}
-        config={{
-          imageSettings,
-          backgroundEffects,
-          gradient,
-        }}
-        onApply={handleDevModeApply}
-      />
     </div>
   );
 };

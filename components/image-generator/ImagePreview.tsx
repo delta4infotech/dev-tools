@@ -753,7 +753,9 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
     (props: ImagePreviewProps, fwdRef: React.ForwardedRef<HTMLDivElement>) => {
         const {
             canvasKey, previewContainerRef, aspectRatio, backgroundValue, backgroundImage,
-            backgroundEffects, textEffects, uploadedImage, imageSettings,
+            backgroundEffects, textEffects, onUpdateImage,
+            imageSettings,
+            drawingMode,
             texts, arrows, counters, redactions, shapes,
             onTextUpdate, onTextUpdateWithHistory, onTextDelete,
             onArrowAdd, onArrowUpdate, onArrowUpdateWithHistory,
@@ -761,7 +763,8 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             onRedactAdd, onRedactUpdate, onRedactUpdateWithHistory, onRedactDelete,
             onShapeAdd, onShapeUpdate, onShapeUpdateWithHistory, onShapeDelete,
             selection, onSelectObject, editing, onSetEditing, onActivate, isActive,
-            drawingMode, setDrawingMode,
+            setDrawingMode, onImageSettingsChange,
+            uploadedImageObj, uploadedImage
         } = props;
 
         const localPreviewRef = useRef<HTMLDivElement>(null);
@@ -859,6 +862,68 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         const motionBlurId = `motionBlur-${canvasKey}`;
         const watercolorId = `watercolor-${canvasKey}`;
 
+        const handleImageDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+            if (drawingMode !== 'move') return;
+
+            e.stopPropagation();
+            e.preventDefault(); // Keep preventDefault to stop default browser drag behavior
+            const target = e.currentTarget;
+            target.setPointerCapture(e.pointerId);
+
+            const container = localPreviewRef.current;
+            if (!container || !uploadedImageObj) return; // Ensure container and uploadedImageObj are available
+
+            const containerRect = container.getBoundingClientRect();
+            const startX = e.clientX;
+            const startY = e.clientY;
+
+            // Determine start X/Y (if not set, calculate from current position)
+            let currentX = uploadedImageObj.x;
+            let currentY = uploadedImageObj.y;
+
+            if (currentX === undefined || currentY === undefined) {
+                const rect = target.getBoundingClientRect();
+                currentX = ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100;
+                currentY = ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100;
+                // Initial set to lock position
+                onUpdateImage(uploadedImageObj.id, { x: currentX, y: currentY });
+            }
+
+            const activeCurrentX = currentX!;
+            const activeCurrentY = currentY!;
+            const dragInfo = { hasMoved: false };
+
+            const onPointerMove = (moveEvent: PointerEvent) => {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+
+                if (!dragInfo.hasMoved && Math.hypot(dx, dy) > 2) {
+                    dragInfo.hasMoved = true;
+                    document.body.style.cursor = 'grabbing';
+                }
+
+                if (dragInfo.hasMoved) {
+                    const newX = activeCurrentX + (dx / containerRect.width) * 100;
+                    const newY = activeCurrentY + (dy / containerRect.height) * 100;
+                    onUpdateImage(uploadedImageObj.id, { x: newX, y: newY });
+                }
+            };
+
+            const onPointerUp = (upEvent: PointerEvent) => {
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+                if (target.hasPointerCapture(upEvent.pointerId)) {
+                    target.releasePointerCapture(upEvent.pointerId);
+                }
+                document.body.style.cursor = '';
+            };
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const isManualPosition = uploadedImageObj?.x !== undefined && uploadedImageObj?.y !== undefined;
+
         return (
             <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
                 <svg width="0" height="0" className="absolute">
@@ -896,14 +961,21 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                     <VignetteOverlay opacity={backgroundEffects.vignetteOpacity} />
 
                     {uploadedImage && (
-                        <div className={`absolute inset-0 flex ${alignmentClass} pointer-events-none z-10`} style={imageContainerStyle}>
+                        <div
+                            className={`absolute inset-0 pointer-events-none z-10 ${!isManualPosition ? `flex ${alignmentClass}` : ''}`}
+                            style={!isManualPosition ? imageContainerStyle : undefined}
+                        >
                             {/* Using inline-flex with lineHeight 0 to strictly wrap content without ghost spacing. */}
                             <div
-                                className="relative inline-flex"
+                                className={`relative inline-flex pointer-events-auto ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                onPointerDown={handleImageDragStart}
                                 style={{
-                                    transform: `scale(${imageSettings.scale})`,
-                                    transformOrigin: imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
+                                    transform: `translate(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}) scale(${imageSettings.scale})`,
+                                    transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
                                     lineHeight: 0,
+                                    position: isManualPosition ? 'absolute' : 'relative',
+                                    left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
+                                    top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
                                 }}
                             >
                                 {imageSettings.glassmorphicBorder.enabled && (
@@ -918,16 +990,32 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                             const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
                                             const a = imageSettings.alignment;
                                             let tl = r, tr = r, br = r, bl = r;
-                                            if (a.includes('top')) { tl = 0; tr = 0; }
-                                            if (a.includes('bottom')) { bl = 0; br = 0; }
-                                            if (a.includes('left')) { tl = 0; bl = 0; }
-                                            if (a.includes('right')) { tr = 0; br = 0; }
+                                            if (!isManualPosition) {
+                                                if (a.includes('top')) { tl = 0; tr = 0; }
+                                                if (a.includes('bottom')) { bl = 0; br = 0; }
+                                                if (a.includes('left')) { tl = 0; bl = 0; }
+                                                if (a.includes('right')) { tr = 0; br = 0; }
+                                            }
                                             return `${tl}px ${tr}px ${br}px ${bl}px`;
                                         })(),
                                         opacity: imageSettings.glassmorphicBorder.opacity
                                     }} />
                                 )}
-                                <img src={uploadedImage} style={imageStyle} alt="Uploaded content" className="relative block w-auto h-auto z-10" />
+                                <img src={uploadedImage} style={{
+                                    ...imageStyle,
+                                    borderRadius: (() => {
+                                        const r = imageSettings.corners;
+                                        const a = imageSettings.alignment;
+                                        let tl = r, tr = r, br = r, bl = r;
+                                        if (!isManualPosition) {
+                                            if (a.includes('top')) { tl = 0; tr = 0; }
+                                            if (a.includes('bottom')) { bl = 0; br = 0; }
+                                            if (a.includes('left')) { tl = 0; bl = 0; }
+                                            if (a.includes('right')) { tr = 0; br = 0; }
+                                        }
+                                        return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                    })(),
+                                }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-[90vw] max-h-[90vh]" />
                             </div>
                         </div>
                     )}
