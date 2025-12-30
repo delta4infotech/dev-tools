@@ -995,7 +995,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                         >
                             {/* Using inline-flex with lineHeight 0 to strictly wrap content without ghost spacing. */}
                             <div
-                                className={`relative inline-flex pointer-events-auto ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                                 onPointerDown={handleImageDragStart}
                                 style={{
                                     transform: `translate(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}) scale(${imageSettings.scale})`,
@@ -1009,6 +1009,94 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                     height: isManualPosition && uploadedImageObj?.height ? `${uploadedImageObj.height}%` : undefined,
                                 }}
                             >
+                                {isManualPosition && drawingMode === 'move' && (
+                                    <>
+                                        {['nw', 'ne', 'sw', 'se'].map((cursor) => (
+                                            <div
+                                                key={cursor}
+                                                className={`absolute w-4 h-4 bg-white border-2 border-blue-500 rounded-full z-50 hover:bg-blue-100 transition-all opacity-0 group-hover:opacity-100`}
+                                                style={{
+                                                    cursor: `${cursor}-resize`,
+                                                    top: cursor.includes('n') ? '-8px' : 'auto',
+                                                    bottom: cursor.includes('s') ? '-8px' : 'auto',
+                                                    left: cursor.includes('w') ? '-8px' : 'auto',
+                                                    right: cursor.includes('e') ? '-8px' : 'auto',
+                                                }}
+                                                onPointerDown={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    const target = e.currentTarget;
+                                                    target.setPointerCapture(e.pointerId);
+
+                                                    const container = localPreviewRef.current;
+                                                    if (!container || !uploadedImageObj) return;
+
+                                                    const containerRect = container.getBoundingClientRect();
+                                                    const imageWrapper = target.parentElement as HTMLElement;
+                                                    const wrapperRect = imageWrapper.getBoundingClientRect();
+
+                                                    const startX = e.clientX;
+                                                    // const startY = e.clientY; // Unused for uniform scaling logic based on X-axis dominance or hypotenuse
+
+                                                    const startWidthPercent = uploadedImageObj.width || (wrapperRect.width / containerRect.width) * 100;
+                                                    const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100;
+
+                                                    const aspectRatio = wrapperRect.width / wrapperRect.height;
+                                                    const isLeft = cursor.includes('w');
+                                                    // const isTop = cursor.includes('n');
+
+                                                    const onResizing = (moveEvent: PointerEvent) => {
+                                                        const dx = moveEvent.clientX - startX;
+
+                                                        // Determine direction multiplier: dragging left corner left increases size (-dx adds width), right corner right adds width (+dx)
+                                                        // If isLeft (west), dx < 0 means increasing width.
+                                                        // If !isLeft (east), dx > 0 means increasing width.
+                                                        // Since the image is centered (translate -50%), varying width expands both ways visually, 
+                                                        // so the logic is: total width change = dx * 2 * (isLeft ? -1 : 1)
+                                                        // Wait, since it's width % based, we calculate absolute pixel diff then convert to % of container
+
+                                                        const changePx = dx * (isLeft ? -1 : 1);
+                                                        // We multiply by 2 because transforming from center effectively doubles the edge movement impact visually
+                                                        // BUT strictly speaking, we want the width to increase by X amount. 
+                                                        // If I drag right edge by 10px, width increases by 20px if I want the center to stay put? 
+                                                        // Yes, because `left: 50%` with `transform: translate(-50%)` means center is anchored. 
+                                                        // So to drag the right edge 10px further right, the width must grow by 20px (10px left, 10px right).
+
+                                                        const changePercent = (changePx * 2 / containerRect.width) * 100;
+
+                                                        const newWidth = Math.max(5, startWidthPercent + changePercent); // Min 5% width
+                                                        const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
+                                                        // Aspect ratio math: w/h = ratio => h = w / ratio. 
+                                                        // But `ratio` is in pixels. `newWidth` is %. 
+                                                        // We need consistent units. 
+                                                        // Pixel method:
+                                                        // currentW_px = (newWidth / 100) * containerW
+                                                        // currentH_px = currentW_px / (rectW / rectH)
+                                                        // currentH_% = (currentH_px / containerH) * 100
+                                                        //            = ( ( (newWidth/100)*containerW ) / (wrapperW/wrapperH) ) / containerH * 100
+                                                        //            = newWidth * (containerW / containerH) / (wrapperW/wrapperH)
+
+                                                        onUpdateImage(uploadedImageObj.id, {
+                                                            width: newWidth,
+                                                            height: newHeight
+                                                        });
+                                                    };
+
+                                                    const onResizeEnd = (upEvent: PointerEvent) => {
+                                                        document.removeEventListener('pointermove', onResizing);
+                                                        document.removeEventListener('pointerup', onResizeEnd);
+                                                        if (target.hasPointerCapture(upEvent.pointerId)) {
+                                                            target.releasePointerCapture(upEvent.pointerId);
+                                                        }
+                                                    };
+
+                                                    document.addEventListener('pointermove', onResizing);
+                                                    document.addEventListener('pointerup', onResizeEnd);
+                                                }}
+                                            />
+                                        ))}
+                                    </>
+                                )}
                                 {imageSettings.glassmorphicBorder.enabled && (
                                     <div className="absolute backdrop-blur-xl pointer-events-none z-0" style={{
                                         top: `-${imageSettings.glassmorphicBorder.size}px`,
