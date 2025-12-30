@@ -495,15 +495,6 @@ export default function ImageGenerator() {
   }, []);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
 
-  useEffect(() => {
-    console.log("ImageSettings Changed:", imageSettings);
-  }, [imageSettings]);
-
-  useEffect(() => {
-    console.log("ImageGenerator MOUNTED");
-    return () => console.log("ImageGenerator UNMOUNTED");
-  }, []);
-
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -1085,9 +1076,15 @@ export default function ImageGenerator() {
                   src: e.target.result,
                   name: file.name.replace(/\.[^/.]+$/, ""),
                 };
-                setUploadedImages((prev) => [...prev, newImage]);
-                setActiveImageIndex(uploadedImages.length);
-                setAllTexts((prev) => ({ ...prev, [uploadedImages.length]: [] }));
+                setUploadedImages((prev) => {
+                  const newImages = [...prev, newImage];
+                  setTimeout(() => setActiveImageIndex(newImages.length - 1), 0);
+                  return newImages;
+                });
+
+                setAllTexts((prevTexts) => {
+                  return { ...prevTexts, [uploadedImages.length]: [] };
+                });
               }
             };
             reader.readAsDataURL(file);

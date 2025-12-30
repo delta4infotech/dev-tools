@@ -885,8 +885,18 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                 const rect = target.getBoundingClientRect();
                 currentX = ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100;
                 currentY = ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100;
-                // Initial set to lock position
-                onUpdateImage(uploadedImageObj.id, { x: currentX, y: currentY });
+
+                // Capture current visual dimensions as percentage of container
+                const currentWidth = (rect.width / containerRect.width) * 100;
+                const currentHeight = (rect.height / containerRect.height) * 100;
+
+                // Initial set to lock position and dimensions
+                onUpdateImage(uploadedImageObj.id, {
+                    x: currentX,
+                    y: currentY,
+                    width: currentWidth,
+                    height: currentHeight
+                });
             }
 
             const activeCurrentX = currentX!;
@@ -923,6 +933,24 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         };
 
         const isManualPosition = uploadedImageObj?.x !== undefined && uploadedImageObj?.y !== undefined;
+
+        // Calculate explicit padding values for manual positioning constraints - No longer primary constraint method but kept for safety reference if needed
+        const getPaddingValues = () => {
+            if (imageSettings.alignment === 'middle-center') {
+                const p = imageSettings.padding;
+                return { top: p, bottom: p, left: p, right: p };
+            }
+            const edge = 20;
+            let top = edge, bottom = edge, left = edge, right = edge;
+            const a = imageSettings.alignment;
+            if (a.includes('top')) top = 0;
+            if (a.includes('bottom')) bottom = 0;
+            if (a.includes('left')) left = 0;
+            if (a.includes('right')) right = 0;
+            return { top, bottom, left, right };
+        };
+
+        const paddings = getPaddingValues();
 
         return (
             <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
@@ -976,6 +1004,9 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                     position: isManualPosition ? 'absolute' : 'relative',
                                     left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
                                     top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
+                                    // Use stored width/height if available, fallback to nothing (auto) if not set yet
+                                    width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : undefined,
+                                    height: isManualPosition && uploadedImageObj?.height ? `${uploadedImageObj.height}%` : undefined,
                                 }}
                             >
                                 {imageSettings.glassmorphicBorder.enabled && (
@@ -1015,7 +1046,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                         }
                                         return `${tl}px ${tr}px ${br}px ${bl}px`;
                                     })(),
-                                }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-[90vw] max-h-[90vh]" />
+                                }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
                             </div>
                         </div>
                     )}

@@ -131,6 +131,8 @@ export interface UploadedImage {
     name: string;
     x?: number;
     y?: number;
+    width?: number;
+    height?: number;
 }
 
 export type DrawingMode = 'arrow' | 'redact' | 'shape' | 'counter' | 'move' | null;
