@@ -886,16 +886,17 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                 currentX = ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100;
                 currentY = ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100;
 
-                // Capture current visual dimensions as percentage of container
-                const currentWidth = (rect.width / containerRect.width) * 100;
-                const currentHeight = (rect.height / containerRect.height) * 100;
+                // Calculate current width in % of container, compensating for the scale transform
+                // rect.width includes the scale, so we divide by scale to get the "unscaled" base size
+                const currentWidth = ((rect.width / imageSettings.scale) / containerRect.width) * 100;
+                // const currentHeight = ((rect.height / imageSettings.scale) / containerRect.height) * 100; // Removed to fix stretching
 
-                // Initial set to lock position and dimensions
+                // Initial set to lock position AND dimensions to prevent auto-scaling "jump"
                 onUpdateImage(uploadedImageObj.id, {
                     x: currentX,
                     y: currentY,
                     width: currentWidth,
-                    height: currentHeight
+                    height: undefined // Ensure height is undefined so aspect ratio is preserved
                 });
             }
 
@@ -952,6 +953,16 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
         const paddings = getPaddingValues();
 
+
+        const getProxiedUrl = useCallback((url: string | null) => {
+            if (!url) return null;
+            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) return url;
+            return `/api/proxy?url=${encodeURIComponent(url)}`;
+        }, []);
+
+        const proxiedBackgroundImage = getProxiedUrl(backgroundImage);
+        const proxiedUploadedImage = getProxiedUrl(uploadedImage);
+
         return (
             <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
                 <svg width="0" height="0" className="absolute">
@@ -983,12 +994,12 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                     }}
                     onPointerDown={handlePointerDown}
                 >
-                    <div className="absolute inset-0 w-full h-full z-0" style={{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : backgroundValue, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}` }} />
+                    <div className="absolute inset-0 w-full h-full z-0" style={{ backgroundImage: proxiedBackgroundImage ? `url(${proxiedBackgroundImage})` : backgroundValue, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}` }} />
                     <PatternOverlay pattern={backgroundEffects.pattern} opacity={backgroundEffects.patternOpacity} />
                     <NoiseOverlay opacity={backgroundEffects.noiseOpacity} />
                     <VignetteOverlay opacity={backgroundEffects.vignetteOpacity} />
 
-                    {uploadedImage && (
+                    {proxiedUploadedImage && (
                         <div
                             className={`absolute inset-0 pointer-events-none z-10 ${!isManualPosition ? `flex ${alignmentClass}` : ''}`}
                             style={!isManualPosition ? imageContainerStyle : undefined}
@@ -998,15 +1009,19 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                 className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                                 onPointerDown={handleImageDragStart}
                                 style={{
-                                    transform: `translate(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}) scale(${imageSettings.scale})`,
+                                    transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${imageSettings.scale})`,
                                     transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
+                                    willChange: drawingMode === 'move' ? 'transform' : 'auto',
+                                    backfaceVisibility: 'hidden',
                                     lineHeight: 0,
                                     position: isManualPosition ? 'absolute' : 'relative',
                                     left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
                                     top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
-                                    // Use stored width/height if available, fallback to nothing (auto) if not set yet
-                                    width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : undefined,
-                                    height: isManualPosition && uploadedImageObj?.height ? `${uploadedImageObj.height}%` : undefined,
+                                    // Use stored width/height if available, fallback to fit-content (auto wrapping)
+                                    width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
+                                    height: isManualPosition && uploadedImageObj?.width ? 'auto' : 'fit-content', // Depend on width to maintain aspect ratio
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
                                 }}
                             >
                                 {isManualPosition && drawingMode === 'move' && (
@@ -1039,9 +1054,9 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                                     // const startY = e.clientY; // Unused for uniform scaling logic based on X-axis dominance or hypotenuse
 
                                                     const startWidthPercent = uploadedImageObj.width || (wrapperRect.width / containerRect.width) * 100;
-                                                    const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100;
+                                                    // const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100; // Unused
 
-                                                    const aspectRatio = wrapperRect.width / wrapperRect.height;
+                                                    // const aspectRatio = wrapperRect.width / wrapperRect.height;
                                                     const isLeft = cursor.includes('w');
                                                     // const isTop = cursor.includes('n');
 
@@ -1065,20 +1080,11 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                                         const changePercent = (changePx * 2 / containerRect.width) * 100;
 
                                                         const newWidth = Math.max(5, startWidthPercent + changePercent); // Min 5% width
-                                                        const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
-                                                        // Aspect ratio math: w/h = ratio => h = w / ratio. 
-                                                        // But `ratio` is in pixels. `newWidth` is %. 
-                                                        // We need consistent units. 
-                                                        // Pixel method:
-                                                        // currentW_px = (newWidth / 100) * containerW
-                                                        // currentH_px = currentW_px / (rectW / rectH)
-                                                        // currentH_% = (currentH_px / containerH) * 100
-                                                        //            = ( ( (newWidth/100)*containerW ) / (wrapperW/wrapperH) ) / containerH * 100
-                                                        //            = newWidth * (containerW / containerH) / (wrapperW/wrapperH)
+                                                        // const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
 
                                                         onUpdateImage(uploadedImageObj.id, {
                                                             width: newWidth,
-                                                            height: newHeight
+                                                            height: undefined // Ensure height is undefined
                                                         });
                                                     };
 
@@ -1098,29 +1104,33 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                     </>
                                 )}
                                 {imageSettings.glassmorphicBorder.enabled && (
-                                    <div className="absolute backdrop-blur-xl pointer-events-none z-0" style={{
-                                        top: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        left: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        right: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        bottom: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
-                                        border: `1px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
-                                        borderRadius: (() => {
-                                            const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
-                                            const a = imageSettings.alignment;
-                                            let tl = r, tr = r, br = r, bl = r;
-                                            if (!isManualPosition) {
-                                                if (a.includes('top')) { tl = 0; tr = 0; }
-                                                if (a.includes('bottom')) { bl = 0; br = 0; }
-                                                if (a.includes('left')) { tl = 0; bl = 0; }
-                                                if (a.includes('right')) { tr = 0; br = 0; }
-                                            }
-                                            return `${tl}px ${tr}px ${br}px ${bl}px`;
-                                        })(),
-                                        opacity: imageSettings.glassmorphicBorder.opacity
-                                    }} />
+                                    <div
+                                        key={`glass-${imageSettings.corners}`}
+                                        className="absolute backdrop-blur-xl pointer-events-none z-0"
+                                        style={{
+                                            top: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            left: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            right: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            bottom: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
+                                            border: `${Math.max(1, 1 / imageSettings.scale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
+                                            borderRadius: (() => {
+                                                const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
+                                                const a = imageSettings.alignment;
+                                                let tl = r, tr = r, br = r, bl = r;
+                                                if (!isManualPosition) {
+                                                    if (a.includes('top')) { tl = 0; tr = 0; }
+                                                    if (a.includes('bottom')) { bl = 0; br = 0; }
+                                                    if (a.includes('left')) { tl = 0; bl = 0; }
+                                                    if (a.includes('right')) { tr = 0; br = 0; }
+                                                }
+                                                return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                            })(),
+                                            opacity: imageSettings.glassmorphicBorder.opacity,
+                                        }}
+                                    />
                                 )}
-                                <img src={uploadedImage} style={{
+                                <img src={proxiedUploadedImage || ""} style={{
                                     ...imageStyle,
                                     borderRadius: (() => {
                                         const r = imageSettings.corners;
