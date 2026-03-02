@@ -1148,7 +1148,18 @@ export default function ImageGenerator() {
     setIsStylePopoverOpen(false);
     await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      const dataUrl: string = await htmlToImage.toPng(nodeToCapture, { cacheBust: true, pixelRatio: 4, quality: 1.0 });
+      const width = nodeToCapture.offsetWidth;
+      const height = nodeToCapture.offsetHeight;
+      const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
+        cacheBust: true,
+        pixelRatio: 4,
+        quality: 1.0,
+        width,
+        height,
+        style: {
+          transform: "none",
+        }
+      });
       const link = document.createElement("a");
       const filename = activeIdx !== null && uploadedImages[activeIdx] ? uploadedImages[activeIdx].name : generateRandomFilename();
       link.download = `${filename}.png`;
@@ -1173,7 +1184,18 @@ export default function ImageGenerator() {
       for (let i = 0; i < uploadedImages.length; i++) {
         const nodeToCapture = previewRefs.current[i];
         if (nodeToCapture) {
-          const dataUrl: string = await htmlToImage.toPng(nodeToCapture, { cacheBust: true, pixelRatio: 4, quality: 1.0 });
+          const width = nodeToCapture.offsetWidth;
+          const height = nodeToCapture.offsetHeight;
+          const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
+            cacheBust: true,
+            pixelRatio: 4,
+            quality: 1.0,
+            width,
+            height,
+            style: {
+              transform: "none",
+            }
+          });
           zip.file(`${uploadedImages[i].name}.png`, dataUrl.substring(dataUrl.indexOf(",") + 1), { base64: true });
         }
       }

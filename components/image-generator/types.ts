@@ -34,7 +34,7 @@ export interface BackgroundEffects {
     blur: number;
     motionBlur: number;
     watercolor: number;
-    pattern: 'none' | 'dots' | 'grid' | 'lines';
+    pattern: 'none' | 'dots' | 'grid' | 'lines' | 'waves' | 'zigzag' | 'hexagons' | 'diagonal-stripes' | 'crosshatch' | 'plus';
     patternOpacity: number;
 }
 

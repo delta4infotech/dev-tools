@@ -37,7 +37,24 @@ const PatternOverlay: React.FC<{ pattern: BackgroundEffects['pattern'], opacity:
         backgroundSize = '20px 20px';
     } else if (pattern === 'lines') {
         backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.3) 0, rgba(255, 255, 255, 0.3) 1px, transparent 0, transparent 50%)';
-        backgroundSize = '10px 10px';
+    } else if (pattern === 'waves') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='40' height='20' viewBox='0 0 40 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 Q10 0 20 10 T40 10' fill='none' stroke='white' stroke-width='2' stroke-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '40px 20px';
+    } else if (pattern === 'zigzag') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 L10 0 L20 10 L10 20 Z' fill='none' stroke='white' stroke-width='1.5' stroke-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '20px 20px';
+    } else if (pattern === 'hexagons') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='28' height='49' viewBox='0 0 28 49' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='white' stroke-width='1.5' stroke-opacity='0.4' fill='none' fill-rule='evenodd'%3E%3Cpath d='M14 0l14 8.08v16.16L14 32.32 0 24.24V8.08zM0 48.48L14 40.4l14 8.08'/%3E%3C/g%3E%3C/svg%3E")`;
+        backgroundSize = '28px 49px';
+    } else if (pattern === 'diagonal-stripes') {
+        backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 2px, transparent 2px, transparent 10px)';
+        backgroundSize = '14px 14px';
+    } else if (pattern === 'crosshatch') {
+        backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 1px, transparent 1px, transparent 10px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 1px, transparent 1px, transparent 10px)';
+        backgroundSize = '14px 14px';
+    } else if (pattern === 'plus') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9 9V0h2v9h9v2h-9v9H9v-9H0V9h9z' fill='white' fill-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '20px 20px';
     }
 
     return (
@@ -967,8 +984,19 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
                 <svg width="0" height="0" className="absolute">
                     <defs>
-                        <filter id={motionBlurId}><feGaussianBlur in="SourceGraphic" stdDeviation={`${backgroundEffects.motionBlur} 0`} /></filter>
-                        <filter id={watercolorId}><feTurbulence type="fractalNoise" baseFrequency="0.01 0.005" numOctaves="5" seed="2" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale={backgroundEffects.watercolor} xChannelSelector="R" yChannelSelector="G" /></filter>
+                        <filter id={motionBlurId} x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation={`${backgroundEffects.motionBlur} 0`} />
+                        </filter>
+                        <filter id={watercolorId} x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation={backgroundEffects.watercolor * 0.03} result="blur1" />
+                            <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="2" result="noise" />
+                            <feDisplacementMap in="blur1" in2="noise" scale={backgroundEffects.watercolor * 0.2} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+                            <feComponentTransfer in="displaced" result="colorized">
+                                <feFuncR type="linear" slope="1.05" intercept="-0.02" />
+                                <feFuncG type="linear" slope="1.05" intercept="-0.02" />
+                                <feFuncB type="linear" slope="1.05" intercept="-0.02" />
+                            </feComponentTransfer>
+                        </filter>
                     </defs>
                 </svg>
 
@@ -994,7 +1022,14 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                     }}
                     onPointerDown={handlePointerDown}
                 >
-                    <div className="absolute inset-0 w-full h-full z-0" style={{ backgroundImage: proxiedBackgroundImage ? `url(${proxiedBackgroundImage})` : backgroundValue, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}` }} />
+                    <div className="absolute inset-0 w-full h-full z-0" style={{
+                        backgroundImage: proxiedBackgroundImage ? `url(${proxiedBackgroundImage})` : backgroundValue,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}`,
+                        transform: `scale(${1 + (backgroundEffects.blur * 0.0015) + (backgroundEffects.motionBlur * 0.0015) + (backgroundEffects.watercolor * 0.0005)})`,
+                        transformOrigin: 'center'
+                    }} />
                     <PatternOverlay pattern={backgroundEffects.pattern} opacity={backgroundEffects.patternOpacity} />
                     <NoiseOverlay opacity={backgroundEffects.noiseOpacity} />
                     <VignetteOverlay opacity={backgroundEffects.vignetteOpacity} />

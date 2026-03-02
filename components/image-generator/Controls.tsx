@@ -514,9 +514,17 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                   <option value="dots">Dots</option>
                   <option value="grid">Grid</option>
                   <option value="lines">Lines</option>
+                  <option value="waves">Waves</option>
+                  <option value="zigzag">Zigzag</option>
+                  <option value="hexagons">Hexagons</option>
+                  <option value="diagonal-stripes">Diagonal Stripes</option>
+                  <option value="crosshatch">Crosshatch</option>
+                  <option value="plus">Plus</option>
                 </select>
               </div>
-              <SliderControl label="Pattern Opacity" value={backgroundEffects.patternOpacity} onChange={(v) => handleBackgroundEffectChange("patternOpacity", v)} min={0} max={1} step={0.01} disabled={backgroundEffects.pattern === "none"} />
+              {backgroundEffects.pattern !== "none" && (
+                <SliderControl label="Pattern Opacity" value={backgroundEffects.patternOpacity} onChange={(v) => handleBackgroundEffectChange("patternOpacity", v)} min={0} max={1} step={0.01} />
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
