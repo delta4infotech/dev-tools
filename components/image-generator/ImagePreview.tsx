@@ -37,7 +37,24 @@ const PatternOverlay: React.FC<{ pattern: BackgroundEffects['pattern'], opacity:
         backgroundSize = '20px 20px';
     } else if (pattern === 'lines') {
         backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.3) 0, rgba(255, 255, 255, 0.3) 1px, transparent 0, transparent 50%)';
-        backgroundSize = '10px 10px';
+    } else if (pattern === 'waves') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='40' height='20' viewBox='0 0 40 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 Q10 0 20 10 T40 10' fill='none' stroke='white' stroke-width='2' stroke-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '40px 20px';
+    } else if (pattern === 'zigzag') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 L10 0 L20 10 L10 20 Z' fill='none' stroke='white' stroke-width='1.5' stroke-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '20px 20px';
+    } else if (pattern === 'hexagons') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='28' height='49' viewBox='0 0 28 49' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='white' stroke-width='1.5' stroke-opacity='0.4' fill='none' fill-rule='evenodd'%3E%3Cpath d='M14 0l14 8.08v16.16L14 32.32 0 24.24V8.08zM0 48.48L14 40.4l14 8.08'/%3E%3C/g%3E%3C/svg%3E")`;
+        backgroundSize = '28px 49px';
+    } else if (pattern === 'diagonal-stripes') {
+        backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 2px, transparent 2px, transparent 10px)';
+        backgroundSize = '14px 14px';
+    } else if (pattern === 'crosshatch') {
+        backgroundImage = 'repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 1px, transparent 1px, transparent 10px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.4) 0, rgba(255, 255, 255, 0.4) 1px, transparent 1px, transparent 10px)';
+        backgroundSize = '14px 14px';
+    } else if (pattern === 'plus') {
+        backgroundImage = `url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9 9V0h2v9h9v2h-9v9H9v-9H0V9h9z' fill='white' fill-opacity='0.4'/%3E%3C/svg%3E")`;
+        backgroundSize = '20px 20px';
     }
 
     return (
@@ -753,7 +770,9 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
     (props: ImagePreviewProps, fwdRef: React.ForwardedRef<HTMLDivElement>) => {
         const {
             canvasKey, previewContainerRef, aspectRatio, backgroundValue, backgroundImage,
-            backgroundEffects, textEffects, uploadedImage, imageSettings,
+            backgroundEffects, textEffects, onUpdateImage,
+            imageSettings,
+            drawingMode,
             texts, arrows, counters, redactions, shapes,
             onTextUpdate, onTextUpdateWithHistory, onTextDelete,
             onArrowAdd, onArrowUpdate, onArrowUpdateWithHistory,
@@ -761,7 +780,8 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             onRedactAdd, onRedactUpdate, onRedactUpdateWithHistory, onRedactDelete,
             onShapeAdd, onShapeUpdate, onShapeUpdateWithHistory, onShapeDelete,
             selection, onSelectObject, editing, onSetEditing, onActivate, isActive,
-            drawingMode, setDrawingMode,
+            setDrawingMode, onImageSettingsChange,
+            uploadedImageObj, uploadedImage
         } = props;
 
         const localPreviewRef = useRef<HTMLDivElement>(null);
@@ -859,12 +879,124 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         const motionBlurId = `motionBlur-${canvasKey}`;
         const watercolorId = `watercolor-${canvasKey}`;
 
+        const handleImageDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+            if (drawingMode !== 'move') return;
+
+            e.stopPropagation();
+            e.preventDefault(); // Keep preventDefault to stop default browser drag behavior
+            const target = e.currentTarget;
+            target.setPointerCapture(e.pointerId);
+
+            const container = localPreviewRef.current;
+            if (!container || !uploadedImageObj) return; // Ensure container and uploadedImageObj are available
+
+            const containerRect = container.getBoundingClientRect();
+            const startX = e.clientX;
+            const startY = e.clientY;
+
+            // Determine start X/Y (if not set, calculate from current position)
+            let currentX = uploadedImageObj.x;
+            let currentY = uploadedImageObj.y;
+
+            if (currentX === undefined || currentY === undefined) {
+                const rect = target.getBoundingClientRect();
+                currentX = ((rect.left + rect.width / 2 - containerRect.left) / containerRect.width) * 100;
+                currentY = ((rect.top + rect.height / 2 - containerRect.top) / containerRect.height) * 100;
+
+                // Calculate current width in % of container, compensating for the scale transform
+                // rect.width includes the scale, so we divide by scale to get the "unscaled" base size
+                const currentWidth = ((rect.width / imageSettings.scale) / containerRect.width) * 100;
+                // const currentHeight = ((rect.height / imageSettings.scale) / containerRect.height) * 100; // Removed to fix stretching
+
+                // Initial set to lock position AND dimensions to prevent auto-scaling "jump"
+                onUpdateImage(uploadedImageObj.id, {
+                    x: currentX,
+                    y: currentY,
+                    width: currentWidth,
+                    height: undefined // Ensure height is undefined so aspect ratio is preserved
+                });
+            }
+
+            const activeCurrentX = currentX!;
+            const activeCurrentY = currentY!;
+            const dragInfo = { hasMoved: false };
+
+            const onPointerMove = (moveEvent: PointerEvent) => {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+
+                if (!dragInfo.hasMoved && Math.hypot(dx, dy) > 2) {
+                    dragInfo.hasMoved = true;
+                    document.body.style.cursor = 'grabbing';
+                }
+
+                if (dragInfo.hasMoved) {
+                    const newX = activeCurrentX + (dx / containerRect.width) * 100;
+                    const newY = activeCurrentY + (dy / containerRect.height) * 100;
+                    onUpdateImage(uploadedImageObj.id, { x: newX, y: newY });
+                }
+            };
+
+            const onPointerUp = (upEvent: PointerEvent) => {
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+                if (target.hasPointerCapture(upEvent.pointerId)) {
+                    target.releasePointerCapture(upEvent.pointerId);
+                }
+                document.body.style.cursor = '';
+            };
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const isManualPosition = uploadedImageObj?.x !== undefined && uploadedImageObj?.y !== undefined;
+
+        // Calculate explicit padding values for manual positioning constraints - No longer primary constraint method but kept for safety reference if needed
+        const getPaddingValues = () => {
+            if (imageSettings.alignment === 'middle-center') {
+                const p = imageSettings.padding;
+                return { top: p, bottom: p, left: p, right: p };
+            }
+            const edge = 20;
+            let top = edge, bottom = edge, left = edge, right = edge;
+            const a = imageSettings.alignment;
+            if (a.includes('top')) top = 0;
+            if (a.includes('bottom')) bottom = 0;
+            if (a.includes('left')) left = 0;
+            if (a.includes('right')) right = 0;
+            return { top, bottom, left, right };
+        };
+
+        const paddings = getPaddingValues();
+
+
+        const getProxiedUrl = useCallback((url: string | null) => {
+            if (!url) return null;
+            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) return url;
+            return `/api/proxy?url=${encodeURIComponent(url)}`;
+        }, []);
+
+        const proxiedBackgroundImage = getProxiedUrl(backgroundImage);
+        const proxiedUploadedImage = getProxiedUrl(uploadedImage);
+
         return (
             <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
                 <svg width="0" height="0" className="absolute">
                     <defs>
-                        <filter id={motionBlurId}><feGaussianBlur in="SourceGraphic" stdDeviation={`${backgroundEffects.motionBlur} 0`} /></filter>
-                        <filter id={watercolorId}><feTurbulence type="fractalNoise" baseFrequency="0.01 0.005" numOctaves="5" seed="2" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale={backgroundEffects.watercolor} xChannelSelector="R" yChannelSelector="G" /></filter>
+                        <filter id={motionBlurId} x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation={`${backgroundEffects.motionBlur} 0`} />
+                        </filter>
+                        <filter id={watercolorId} x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation={backgroundEffects.watercolor * 0.03} result="blur1" />
+                            <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" seed="2" result="noise" />
+                            <feDisplacementMap in="blur1" in2="noise" scale={backgroundEffects.watercolor * 0.2} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+                            <feComponentTransfer in="displaced" result="colorized">
+                                <feFuncR type="linear" slope="1.05" intercept="-0.02" />
+                                <feFuncG type="linear" slope="1.05" intercept="-0.02" />
+                                <feFuncB type="linear" slope="1.05" intercept="-0.02" />
+                            </feComponentTransfer>
+                        </filter>
                     </defs>
                 </svg>
 
@@ -890,44 +1022,164 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                     }}
                     onPointerDown={handlePointerDown}
                 >
-                    <div className="absolute inset-0 w-full h-full z-0" style={{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : backgroundValue, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}` }} />
+                    <div className="absolute inset-0 w-full h-full z-0" style={{
+                        backgroundImage: proxiedBackgroundImage ? `url(${proxiedBackgroundImage})` : backgroundValue,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: `blur(${backgroundEffects.blur}px) ${backgroundEffects.motionBlur > 0 ? `url(#${motionBlurId})` : ''} ${backgroundEffects.watercolor > 0 ? `url(#${watercolorId})` : ''}`,
+                        transform: `scale(${1 + (backgroundEffects.blur * 0.0015) + (backgroundEffects.motionBlur * 0.0015) + (backgroundEffects.watercolor * 0.0005)})`,
+                        transformOrigin: 'center'
+                    }} />
                     <PatternOverlay pattern={backgroundEffects.pattern} opacity={backgroundEffects.patternOpacity} />
                     <NoiseOverlay opacity={backgroundEffects.noiseOpacity} />
                     <VignetteOverlay opacity={backgroundEffects.vignetteOpacity} />
 
-                    {uploadedImage && (
-                        <div className={`absolute inset-0 flex ${alignmentClass} pointer-events-none z-10`} style={imageContainerStyle}>
+                    {proxiedUploadedImage && (
+                        <div
+                            className={`absolute inset-0 pointer-events-none z-10 ${!isManualPosition ? `flex ${alignmentClass}` : ''}`}
+                            style={!isManualPosition ? imageContainerStyle : undefined}
+                        >
                             {/* Using inline-flex with lineHeight 0 to strictly wrap content without ghost spacing. */}
                             <div
-                                className="relative inline-flex"
+                                className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                onPointerDown={handleImageDragStart}
                                 style={{
-                                    transform: `scale(${imageSettings.scale})`,
-                                    transformOrigin: imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
+                                    transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${imageSettings.scale})`,
+                                    transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
+                                    willChange: drawingMode === 'move' ? 'transform' : 'auto',
+                                    backfaceVisibility: 'hidden',
                                     lineHeight: 0,
+                                    position: isManualPosition ? 'absolute' : 'relative',
+                                    left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
+                                    top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
+                                    // Use stored width/height if available, fallback to fit-content (auto wrapping)
+                                    width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
+                                    height: isManualPosition && uploadedImageObj?.width ? 'auto' : 'fit-content', // Depend on width to maintain aspect ratio
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
                                 }}
                             >
+                                {isManualPosition && drawingMode === 'move' && (
+                                    <>
+                                        {['nw', 'ne', 'sw', 'se'].map((cursor) => (
+                                            <div
+                                                key={cursor}
+                                                className={`absolute w-4 h-4 bg-white border-2 border-blue-500 rounded-full z-50 hover:bg-blue-100 transition-all opacity-0 group-hover:opacity-100`}
+                                                style={{
+                                                    cursor: `${cursor}-resize`,
+                                                    top: cursor.includes('n') ? '-8px' : 'auto',
+                                                    bottom: cursor.includes('s') ? '-8px' : 'auto',
+                                                    left: cursor.includes('w') ? '-8px' : 'auto',
+                                                    right: cursor.includes('e') ? '-8px' : 'auto',
+                                                }}
+                                                onPointerDown={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    const target = e.currentTarget;
+                                                    target.setPointerCapture(e.pointerId);
+
+                                                    const container = localPreviewRef.current;
+                                                    if (!container || !uploadedImageObj) return;
+
+                                                    const containerRect = container.getBoundingClientRect();
+                                                    const imageWrapper = target.parentElement as HTMLElement;
+                                                    const wrapperRect = imageWrapper.getBoundingClientRect();
+
+                                                    const startX = e.clientX;
+                                                    // const startY = e.clientY; // Unused for uniform scaling logic based on X-axis dominance or hypotenuse
+
+                                                    const startWidthPercent = uploadedImageObj.width || (wrapperRect.width / containerRect.width) * 100;
+                                                    // const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100; // Unused
+
+                                                    // const aspectRatio = wrapperRect.width / wrapperRect.height;
+                                                    const isLeft = cursor.includes('w');
+                                                    // const isTop = cursor.includes('n');
+
+                                                    const onResizing = (moveEvent: PointerEvent) => {
+                                                        const dx = moveEvent.clientX - startX;
+
+                                                        // Determine direction multiplier: dragging left corner left increases size (-dx adds width), right corner right adds width (+dx)
+                                                        // If isLeft (west), dx < 0 means increasing width.
+                                                        // If !isLeft (east), dx > 0 means increasing width.
+                                                        // Since the image is centered (translate -50%), varying width expands both ways visually, 
+                                                        // so the logic is: total width change = dx * 2 * (isLeft ? -1 : 1)
+                                                        // Wait, since it's width % based, we calculate absolute pixel diff then convert to % of container
+
+                                                        const changePx = dx * (isLeft ? -1 : 1);
+                                                        // We multiply by 2 because transforming from center effectively doubles the edge movement impact visually
+                                                        // BUT strictly speaking, we want the width to increase by X amount. 
+                                                        // If I drag right edge by 10px, width increases by 20px if I want the center to stay put? 
+                                                        // Yes, because `left: 50%` with `transform: translate(-50%)` means center is anchored. 
+                                                        // So to drag the right edge 10px further right, the width must grow by 20px (10px left, 10px right).
+
+                                                        const changePercent = (changePx * 2 / containerRect.width) * 100;
+
+                                                        const newWidth = Math.max(5, startWidthPercent + changePercent); // Min 5% width
+                                                        // const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
+
+                                                        onUpdateImage(uploadedImageObj.id, {
+                                                            width: newWidth,
+                                                            height: undefined // Ensure height is undefined
+                                                        });
+                                                    };
+
+                                                    const onResizeEnd = (upEvent: PointerEvent) => {
+                                                        document.removeEventListener('pointermove', onResizing);
+                                                        document.removeEventListener('pointerup', onResizeEnd);
+                                                        if (target.hasPointerCapture(upEvent.pointerId)) {
+                                                            target.releasePointerCapture(upEvent.pointerId);
+                                                        }
+                                                    };
+
+                                                    document.addEventListener('pointermove', onResizing);
+                                                    document.addEventListener('pointerup', onResizeEnd);
+                                                }}
+                                            />
+                                        ))}
+                                    </>
+                                )}
                                 {imageSettings.glassmorphicBorder.enabled && (
-                                    <div className="absolute backdrop-blur-xl pointer-events-none z-0" style={{
-                                        top: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        left: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        right: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        bottom: `-${imageSettings.glassmorphicBorder.size}px`,
-                                        backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
-                                        border: `1px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
-                                        borderRadius: (() => {
-                                            const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
-                                            const a = imageSettings.alignment;
-                                            let tl = r, tr = r, br = r, bl = r;
+                                    <div
+                                        key={`glass-${imageSettings.corners}`}
+                                        className="absolute backdrop-blur-xl pointer-events-none z-0"
+                                        style={{
+                                            top: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            left: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            right: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            bottom: `-${imageSettings.glassmorphicBorder.size}px`,
+                                            backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
+                                            border: `${Math.max(1, 1 / imageSettings.scale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
+                                            borderRadius: (() => {
+                                                const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
+                                                const a = imageSettings.alignment;
+                                                let tl = r, tr = r, br = r, bl = r;
+                                                if (!isManualPosition) {
+                                                    if (a.includes('top')) { tl = 0; tr = 0; }
+                                                    if (a.includes('bottom')) { bl = 0; br = 0; }
+                                                    if (a.includes('left')) { tl = 0; bl = 0; }
+                                                    if (a.includes('right')) { tr = 0; br = 0; }
+                                                }
+                                                return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                            })(),
+                                            opacity: imageSettings.glassmorphicBorder.opacity,
+                                        }}
+                                    />
+                                )}
+                                <img src={proxiedUploadedImage || ""} style={{
+                                    ...imageStyle,
+                                    borderRadius: (() => {
+                                        const r = imageSettings.corners;
+                                        const a = imageSettings.alignment;
+                                        let tl = r, tr = r, br = r, bl = r;
+                                        if (!isManualPosition) {
                                             if (a.includes('top')) { tl = 0; tr = 0; }
                                             if (a.includes('bottom')) { bl = 0; br = 0; }
                                             if (a.includes('left')) { tl = 0; bl = 0; }
                                             if (a.includes('right')) { tr = 0; br = 0; }
-                                            return `${tl}px ${tr}px ${br}px ${bl}px`;
-                                        })(),
-                                        opacity: imageSettings.glassmorphicBorder.opacity
-                                    }} />
-                                )}
-                                <img src={uploadedImage} style={imageStyle} alt="Uploaded content" className="relative block w-auto h-auto z-10" />
+                                        }
+                                        return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                    })(),
+                                }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
                             </div>
                         </div>
                     )}

@@ -5,11 +5,12 @@ import { ImagePreview } from "./ImagePreview";
 import { generateRandomGradient, gradientToString } from "./utils/gradient";
 import type { AspectRatio, Gradient, ImageSettings, BackgroundEffects, TextEffects, TextObject, Selection, UploadedImage, DrawingMode, ArrowObject, CounterObject, RedactObject, ShapeObject, CanvasObject } from "./types";
 import { FONTS } from "./templates";
-import { Type, Undo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon } from "./icons";
+import { Type, Undo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon, Move } from "./icons";
 import * as htmlToImage from "html-to-image";
 import JSZip from "jszip";
 import { Slider } from "./ui/Slider";
 import { ColorPicker } from "./ui/ColorPicker";
+import { DevModeModal } from "./DevModeModal";
 
 const DEFAULT_BACKGROUND_EFFECTS: BackgroundEffects = {
   noiseOpacity: 0.29,
@@ -28,6 +29,20 @@ const DEFAULT_TEXT_EFFECTS: TextEffects = {
   shadow: { color: "#000000", offsetX: 2, offsetY: 4, blur: 10, opacity: 0.3 },
   stroke: { color: "#000000", width: 0 },
   blur: 0,
+};
+
+const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
+  padding: 10,
+  scale: 1,
+  shadow: 20,
+  corners: 6,
+  alignment: "bottom-center",
+  glassmorphicBorder: {
+    enabled: true,
+    opacity: 0.83,
+    size: 6,
+    color: "#ffffff",
+  },
 };
 
 const createInitialText = (): TextObject => ({
@@ -120,13 +135,27 @@ const StylePopover: React.FC<{
   onUpdateShape: (props: Partial<Omit<ShapeObject, "id" | "type">>) => void;
   onUpdateEffects: (key: keyof TextEffects, value: TextEffects[keyof TextEffects]) => void;
   onUpdateSubEffects: (prop: "shadow" | "stroke", key: string, value: string | number) => void;
-}> = ({ selectedObject, selectionType, textEffects, onUpdateText, onUpdateArrow, onUpdateCounter, onUpdateRedact, onUpdateShape, onUpdateEffects, onUpdateSubEffects }) => {
+  applyToAll: boolean;
+  onToggleApplyToAll: (value: boolean) => void;
+}> = ({ selectedObject, selectionType, textEffects, onUpdateText, onUpdateArrow, onUpdateCounter, onUpdateRedact, onUpdateShape, onUpdateEffects, onUpdateSubEffects, applyToAll, onToggleApplyToAll }) => {
   const [activeTab, setActiveTab] = useState("style");
 
   const TabButton: React.FC<{ name: string; label: string }> = ({ name, label }) => (
     <button onClick={() => setActiveTab(name)} className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === name ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"}`}>
       {label}
     </button>
+  );
+
+  const ApplyToAllCheckbox = () => (
+    <label className="flex items-center space-x-2 text-xs font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors border-b border-white/10 pb-4 mb-4">
+      <input
+        type="checkbox"
+        checked={applyToAll}
+        onChange={(e) => onToggleApplyToAll(e.target.checked)}
+        className="rounded border-neutral-600 bg-neutral-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-neutral-800"
+      />
+      <span>Apply to all {selectionType}s</span>
+    </label>
   );
 
   if (selectionType === "arrow") {
@@ -138,6 +167,7 @@ const StylePopover: React.FC<{
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="p-4 space-y-4">
+          <ApplyToAllCheckbox />
           <h3 className="text-sm font-medium text-white border-b border-white/10 pb-2 mb-2">Arrow Style</h3>
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-neutral-300">Color</label>
@@ -158,6 +188,7 @@ const StylePopover: React.FC<{
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="p-4 space-y-4">
+          <ApplyToAllCheckbox />
           <h3 className="text-sm font-medium text-white border-b border-white/10 pb-2 mb-2">Counter Style</h3>
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-neutral-300">Color</label>
@@ -187,6 +218,7 @@ const StylePopover: React.FC<{
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="p-4 space-y-4">
+          <ApplyToAllCheckbox />
           <h3 className="text-sm font-medium text-white border-b border-white/10 pb-2 mb-2">Redact Style</h3>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-300">Mode</label>
@@ -225,6 +257,7 @@ const StylePopover: React.FC<{
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="p-4 space-y-4">
+          <ApplyToAllCheckbox />
           <h3 className="text-sm font-medium text-white border-b border-white/10 pb-2 mb-2">Shape Style</h3>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-300">Type</label>
@@ -276,7 +309,17 @@ const StylePopover: React.FC<{
           <TabButton name="stroke" label="Stroke" />
         </div>
       </div>
-      <div className="p-4">
+      <div className="p-4 pt-2">
+        <label className="flex items-center space-x-2 mb-6 text-xs font-medium text-neutral-400 cursor-pointer hover:text-white transition-colors border-b border-white/10 pb-4">
+          <input
+            type="checkbox"
+            checked={applyToAll}
+            onChange={(e) => onToggleApplyToAll(e.target.checked)}
+            className="rounded border-neutral-600 bg-neutral-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-neutral-800"
+          />
+          <span>Apply to all objects</span>
+        </label>
+
         {activeTab === "style" && (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -398,6 +441,10 @@ const AnnotationToolbar: React.FC<{
       <ToolbarButton onClick={() => setDrawingMode(drawingMode === "counter" ? null : "counter")} isActive={drawingMode === "counter"} title="Add Counter">
         <CounterIcon className="w-5 h-5" />
       </ToolbarButton>
+      <div className="w-px h-6 bg-white/10 mx-1"></div>
+      <ToolbarButton onClick={() => setDrawingMode(drawingMode === "move" ? null : "move")} isActive={drawingMode === "move"} title="Move Image (Hand Mode)">
+        <Move className="w-5 h-5" />
+      </ToolbarButton>
       <ToolbarButton onClick={() => setDrawingMode(drawingMode === "arrow" ? null : "arrow")} isActive={drawingMode === "arrow"} title="Draw Arrow">
         <ArrowUpRight className="w-5 h-5" />
       </ToolbarButton>
@@ -462,25 +509,27 @@ export default function ImageGenerator() {
     },
   ]);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(0);
-  const [imageSettings, setImageSettings] = useState<ImageSettings>({
-    padding: 10,
-    scale: 1,
-    shadow: 20,
-    corners: 6,
-    alignment: "bottom-center",
-    glassmorphicBorder: {
-      enabled: true,
-      opacity: 0.83,
-      size: 6,
-      color: "#ffffff",
-    },
-  });
+  const handleImageSettingChange = <K extends keyof ImageSettings>(key: K, value: ImageSettings[K]) => {
+    if (key === "alignment") {
+      setUploadedImages((prevImages) => prevImages.map(img => ({ ...img, x: undefined, y: undefined })));
+      setImageSettings((prev) => ({ ...prev, [key]: value, x: undefined, y: undefined }));
+    } else {
+      setImageSettings((prev) => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const onUpdateImage = useCallback((id: string, updates: Partial<UploadedImage>) => {
+    setUploadedImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...updates } : img)));
+  }, []);
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [isStylePopoverOpen, setIsStylePopoverOpen] = useState(false);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>(null);
+  const [applyToAll, setApplyToAll] = useState(false);
 
   const singlePreviewRef = useRef<HTMLDivElement>(null);
   const previewRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -501,6 +550,25 @@ export default function ImageGenerator() {
   useEffect(() => {
     previewRefs.current = previewRefs.current.slice(0, uploadedImages.length);
   }, [uploadedImages.length]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const defaultBg = PRESET_BACKGROUNDS.find((bg) => bg.name === "Ripple")?.url || null;
+      const isDirty =
+        history.length > 0 ||
+        uploadedImages.length !== 1 ||
+        uploadedImages[0].id !== "default-foreground" ||
+        backgroundImage !== defaultBg;
+
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [history.length, uploadedImages, backgroundImage]);
 
   const pushToHistory = useCallback(() => {
     setHistory((prev) => [...prev, { texts: allTexts, arrows: allArrows, counters: allCounters, redactions: allRedactions, shapes: allShapes }]);
@@ -546,6 +614,16 @@ export default function ImageGenerator() {
   );
 
   const handleTextUpdate = useCallback((canvasKey: number, id: string, props: Partial<Omit<TextObject, "id">>) => {
+    // If updating content/position during edit/drag, we don't apply to all usually, 
+    // BUT user asked "style option to apply in all". 
+    // Position/Content is unlikely to be "Applied to All". 
+    // For safety, let's keep basic updates local unless explicitly requested or handled in "WithHistory" which are the "commit" actions.
+    // Actually, real-time dragging (without history) definitely shouldn't sync all positions, as that would look weird or be unintended.
+    // So we invoke applyToAll ONLY in the 'WithHistory' versions which correspond to "finished" editing actions (like closing color picker or finishing drag).
+    // HOWEVER: Style updates (color picker) call handleTextUpdate directly often? 
+    // No, controls call `onUpdateText` which maps to `handleTextUpdateWithHistory` in `activeTab === 'style'`.
+    // Wait, the ColorPicker calls `onUpdateText` which is `handleTextUpdateWithHistory` in the JSX below (line 1332).
+    // So we implement the logic in `handleTextUpdateWithHistory`.
     setAllTexts((prev) => {
       const newTextsForCanvas = (prev[canvasKey] || []).map((t) => (t.id === id ? { ...t, ...props } : t));
       return { ...prev, [canvasKey]: newTextsForCanvas };
@@ -555,9 +633,49 @@ export default function ImageGenerator() {
   const handleTextUpdateWithHistory = useCallback(
     (canvasKey: number, id: string, props: Partial<Omit<TextObject, "id">>) => {
       pushToHistory();
-      handleTextUpdate(canvasKey, id, props);
+      if (applyToAll) {
+        setAllTexts((prev) => {
+          const newAllTexts: Record<number, TextObject[]> = {};
+
+          // Separate style properties from position/content properties
+          // We only want to "Apply to All" the STYLES. 
+          // Position (x, y) and Content should stay unique to the specific object unless explicitly intended (unlikely for "Style" apply).
+          const { xPosition, yPosition, content, id: _id, ...styleProps } = props as any;
+          const otherProps = { xPosition, yPosition, content };
+
+          // Remove undefined keys from otherProps to avoid overwriting with undefined
+          Object.keys(otherProps).forEach(key => (otherProps as any)[key] === undefined && delete (otherProps as any)[key]);
+
+          const hasStyleUpdates = Object.keys(styleProps).length > 0;
+          const hasOtherUpdates = Object.keys(otherProps).length > 0;
+
+          Object.keys(prev).forEach((keyStr) => {
+            const key = Number(keyStr);
+            const texts = prev[key] || [];
+
+            newAllTexts[key] = texts.map((t) => {
+              let updatedText = { ...t };
+
+              // Apply styles to ALL texts
+              if (hasStyleUpdates) {
+                updatedText = { ...updatedText, ...styleProps };
+              }
+
+              // Apply position/content ONLY to the target text
+              if (hasOtherUpdates && Number(key) === canvasKey && t.id === id) {
+                updatedText = { ...updatedText, ...otherProps };
+              }
+
+              return updatedText;
+            });
+          });
+          return newAllTexts;
+        });
+      } else {
+        handleTextUpdate(canvasKey, id, props);
+      }
     },
-    [pushToHistory, handleTextUpdate]
+    [pushToHistory, handleTextUpdate, applyToAll]
   );
 
   const handleArrowUpdate = useCallback((canvasKey: number, id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => {
@@ -570,18 +688,71 @@ export default function ImageGenerator() {
   const handleArrowUpdateWithHistory = useCallback(
     (canvasKey: number, id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => {
       pushToHistory();
-      handleArrowUpdate(canvasKey, id, props);
+      if (applyToAll) {
+        setAllArrows((prev) => {
+          const newAllArrows: Record<number, ArrowObject[]> = {};
+
+          /* Separating Props */
+          const { start, end, ...styleProps } = props as any; // Arrows have start/end coords
+          const otherProps = { start, end };
+          Object.keys(otherProps).forEach(key => (otherProps as any)[key] === undefined && delete (otherProps as any)[key]);
+
+          const hasStyleUpdates = Object.keys(styleProps).length > 0;
+          const hasOtherUpdates = Object.keys(otherProps).length > 0;
+
+          Object.keys(prev).forEach((keyStr) => {
+            const key = Number(keyStr);
+            const arrows = prev[key] || [];
+            newAllArrows[key] = arrows.map(a => {
+              let updatedArrow = { ...a };
+              if (hasStyleUpdates) updatedArrow = { ...updatedArrow, ...styleProps };
+              if (hasOtherUpdates && Number(key) === canvasKey && a.id === id) updatedArrow = { ...updatedArrow, ...otherProps };
+              return updatedArrow;
+            });
+          });
+          return newAllArrows;
+        });
+      } else {
+        handleArrowUpdate(canvasKey, id, props);
+      }
     },
-    [pushToHistory, handleArrowUpdate]
+    [pushToHistory, handleArrowUpdate, applyToAll]
   );
 
   const handleTextEffectsUpdate = useCallback(
     (props: Partial<TextEffects>) => {
       pushToHistory();
+      // Text Effects are global per image setup in `ImagePreview`? 
+      // Wait, `textEffects` is a single state variable in `ImageGenerator` (line 475).
+      // `const [textEffects, setTextEffects] = useState<TextEffects>(DEFAULT_TEXT_EFFECTS);`
+      // This means text effects are ALREADY global for all texts because there's only one state object passed to all ImagePreviews.
+      // Line 1119: `textEffects={textEffects}`
+      // So "Apply to All" for effects is redundant unless `textEffects` were per-canvas.
+      // But they are not. So changing it changes it everywhere inherently.
+      // So we don't need changes here.
       setTextEffects((prev) => ({ ...prev, ...props }));
     },
     [pushToHistory]
   );
+
+  // Wait, `handleTextUpdateWithHistory` updates individual text object properties (font, color).
+  // `handleTextEffectsUpdate` updates the shared `textEffects` (shadow, glass, stroke).
+  // The user asked for "Style | Effects | Shadow | Stroke"
+  // If `textEffects` is global, then Shadow/Stroke/Effects ALREADY apply to all.
+  // The "Style" tab (Font, Color, Size) updates the *individual* text object.
+  // So my `handleTextUpdateWithHistory` change covers the "Style" tab.
+  // The other tabs (Effects, Shadow, Stroke) update `textEffects` which is already global.
+  // EXCEPT: `textEffects` applies to ALL texts indiscriminately. 
+  // Is that what the user wants? "Apply to all" toggle implies choice.
+  // Currently, `textEffects` forces it on everyone.
+  // We can't easily "un-apply" it for some without refactoring `textEffects` to be per-object.
+  // But given the current architecture, those are global.
+  // The user said "so that i do not have to manually change in all".
+  // This implies they ARE manually changing something in all.
+  // Which confirms they are talking about the "Style" tab (specific object props).
+  // Global effects don't need manual repetition.
+  // So focusing on `handleTextUpdateWithHistory` (and Arrow/Shape equivalents) is correct.
+
 
   const handleTextSubEffectChange = useCallback(
     (prop: "shadow" | "stroke", key: string, value: string | number) => {
@@ -646,9 +817,33 @@ export default function ImageGenerator() {
   const handleCounterUpdateWithHistory = useCallback(
     (canvasKey: number, id: string, props: Partial<Omit<CounterObject, "id" | "type">>) => {
       pushToHistory();
-      handleCounterUpdate(canvasKey, id, props);
+      if (applyToAll) {
+        setAllCounters((prev) => {
+          const newAllCounters: Record<number, CounterObject[]> = {};
+          const { x, y, count, ...styleProps } = props as any;
+          const otherProps = { x, y, count };
+          Object.keys(otherProps).forEach(key => (otherProps as any)[key] === undefined && delete (otherProps as any)[key]);
+
+          const hasStyleUpdates = Object.keys(styleProps).length > 0;
+          const hasOtherUpdates = Object.keys(otherProps).length > 0;
+
+          Object.keys(prev).forEach((keyStr) => {
+            const key = Number(keyStr);
+            const counters = prev[key] || [];
+            newAllCounters[key] = counters.map(c => {
+              let updatedCounter = { ...c };
+              if (hasStyleUpdates) updatedCounter = { ...updatedCounter, ...styleProps };
+              if (hasOtherUpdates && Number(key) === canvasKey && c.id === id) updatedCounter = { ...updatedCounter, ...otherProps };
+              return updatedCounter;
+            });
+          });
+          return newAllCounters;
+        });
+      } else {
+        handleCounterUpdate(canvasKey, id, props);
+      }
     },
-    [pushToHistory, handleCounterUpdate]
+    [pushToHistory, handleCounterUpdate, applyToAll]
   );
 
   const handleCounterDelete = useCallback(
@@ -696,9 +891,33 @@ export default function ImageGenerator() {
   const handleRedactUpdateWithHistory = useCallback(
     (canvasKey: number, id: string, props: Partial<Omit<RedactObject, "id" | "type">>) => {
       pushToHistory();
-      handleRedactUpdate(canvasKey, id, props);
+      if (applyToAll) {
+        setAllRedactions((prev) => {
+          const newAllRedactions: Record<number, RedactObject[]> = {};
+          const { x, y, width, height, ...styleProps } = props as any;
+          const otherProps = { x, y, width, height };
+          Object.keys(otherProps).forEach(key => (otherProps as any)[key] === undefined && delete (otherProps as any)[key]);
+
+          const hasStyleUpdates = Object.keys(styleProps).length > 0;
+          const hasOtherUpdates = Object.keys(otherProps).length > 0;
+
+          Object.keys(prev).forEach((keyStr) => {
+            const key = Number(keyStr);
+            const redactions = prev[key] || [];
+            newAllRedactions[key] = redactions.map(r => {
+              let updatedRedact = { ...r };
+              if (hasStyleUpdates) updatedRedact = { ...updatedRedact, ...styleProps };
+              if (hasOtherUpdates && Number(key) === canvasKey && r.id === id) updatedRedact = { ...updatedRedact, ...otherProps };
+              return updatedRedact;
+            });
+          });
+          return newAllRedactions;
+        });
+      } else {
+        handleRedactUpdate(canvasKey, id, props);
+      }
     },
-    [pushToHistory, handleRedactUpdate]
+    [pushToHistory, handleRedactUpdate, applyToAll]
   );
 
   const handleRedactDelete = useCallback(
@@ -745,9 +964,33 @@ export default function ImageGenerator() {
   const handleShapeUpdateWithHistory = useCallback(
     (canvasKey: number, id: string, props: Partial<Omit<ShapeObject, "id" | "type">>) => {
       pushToHistory();
-      handleShapeUpdate(canvasKey, id, props);
+      if (applyToAll) {
+        setAllShapes((prev) => {
+          const newAllShapes: Record<number, ShapeObject[]> = {};
+          const { x, y, width, height, ...styleProps } = props as any;
+          const otherProps = { x, y, width, height };
+          Object.keys(otherProps).forEach(key => (otherProps as any)[key] === undefined && delete (otherProps as any)[key]);
+
+          const hasStyleUpdates = Object.keys(styleProps).length > 0;
+          const hasOtherUpdates = Object.keys(otherProps).length > 0;
+
+          Object.keys(prev).forEach((keyStr) => {
+            const key = Number(keyStr);
+            const shapes = prev[key] || [];
+            newAllShapes[key] = shapes.map(s => {
+              let updatedShape = { ...s };
+              if (hasStyleUpdates) updatedShape = { ...updatedShape, ...styleProps };
+              if (hasOtherUpdates && Number(key) === canvasKey && s.id === id) updatedShape = { ...updatedShape, ...otherProps };
+              return updatedShape;
+            });
+          });
+          return newAllShapes;
+        });
+      } else {
+        handleShapeUpdate(canvasKey, id, props);
+      }
     },
-    [pushToHistory, handleShapeUpdate]
+    [pushToHistory, handleShapeUpdate, applyToAll]
   );
 
   const handleShapeDelete = useCallback(
@@ -905,7 +1148,18 @@ export default function ImageGenerator() {
     setIsStylePopoverOpen(false);
     await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      const dataUrl: string = await htmlToImage.toPng(nodeToCapture, { cacheBust: true, pixelRatio: 4, quality: 1.0 });
+      const width = nodeToCapture.offsetWidth;
+      const height = nodeToCapture.offsetHeight;
+      const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
+        cacheBust: true,
+        pixelRatio: 4,
+        quality: 1.0,
+        width,
+        height,
+        style: {
+          transform: "none",
+        }
+      });
       const link = document.createElement("a");
       const filename = activeIdx !== null && uploadedImages[activeIdx] ? uploadedImages[activeIdx].name : generateRandomFilename();
       link.download = `${filename}.png`;
@@ -930,7 +1184,18 @@ export default function ImageGenerator() {
       for (let i = 0; i < uploadedImages.length; i++) {
         const nodeToCapture = previewRefs.current[i];
         if (nodeToCapture) {
-          const dataUrl: string = await htmlToImage.toPng(nodeToCapture, { cacheBust: true, pixelRatio: 4, quality: 1.0 });
+          const width = nodeToCapture.offsetWidth;
+          const height = nodeToCapture.offsetHeight;
+          const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
+            cacheBust: true,
+            pixelRatio: 4,
+            quality: 1.0,
+            width,
+            height,
+            style: {
+              transform: "none",
+            }
+          });
           zip.file(`${uploadedImages[i].name}.png`, dataUrl.substring(dataUrl.indexOf(",") + 1), { base64: true });
         }
       }
@@ -1013,6 +1278,43 @@ export default function ImageGenerator() {
           hasTextOnCanvas={hasTextOnCanvas}
           drawingMode={drawingMode}
           setDrawingMode={setDrawingMode}
+          onDevModeClick={() => setIsDevMode(true)}
+          isManualPosition={(() => {
+            if (activeImageIndex === null) return false;
+            const img = uploadedImages[activeImageIndex];
+            return img?.x !== undefined && img?.y !== undefined;
+          })()}
+          onResetPosition={() => {
+            if (activeImageIndex !== null) {
+              setUploadedImages((prev) => prev.map((img, i) =>
+                i === activeImageIndex ? { ...img, x: undefined, y: undefined } : img
+              ));
+              // Also ensure global settings match the reset, though primarily driven by uploadedImages now
+              setImageSettings((prev) => ({ ...prev, x: undefined, y: undefined }));
+            }
+          }}
+          onImageUpload={(file) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              if (e.target?.result && typeof e.target.result === "string") {
+                const newImage: UploadedImage = {
+                  id: `img-${Date.now()}`,
+                  src: e.target.result,
+                  name: file.name.replace(/\.[^/.]+$/, ""),
+                };
+                setUploadedImages((prev) => {
+                  const newImages = [...prev, newImage];
+                  setTimeout(() => setActiveImageIndex(newImages.length - 1), 0);
+                  return newImages;
+                });
+
+                setAllTexts((prevTexts) => {
+                  return { ...prevTexts, [uploadedImages.length]: [] };
+                });
+              }
+            };
+            reader.readAsDataURL(file);
+          }}
         />
       </aside>
       <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-black/50 relative order-1 lg:order-2 overflow-hidden">
@@ -1042,6 +1344,8 @@ export default function ImageGenerator() {
                       backgroundEffects={backgroundEffects}
                       textEffects={textEffects}
                       uploadedImage={image.src}
+                      uploadedImageObj={image}
+                      onUpdateImage={onUpdateImage}
                       imageSettings={imageSettings}
                       texts={allTexts[index] || []}
                       arrows={allArrows[index] || []}
@@ -1073,6 +1377,7 @@ export default function ImageGenerator() {
                       onSetEditing={handleSetEditing}
                       drawingMode={drawingMode}
                       setDrawingMode={setDrawingMode}
+                      onImageSettingsChange={handleImageSettingChange}
                     />
                   </div>
                 ))}
@@ -1083,7 +1388,7 @@ export default function ImageGenerator() {
                   ref={singlePreviewRef}
                   canvasKey={-1}
                   isActive={true}
-                  onActivate={() => {}}
+                  onActivate={() => { }}
                   previewContainerRef={previewContainerRef}
                   aspectRatio={aspectRatio}
                   backgroundValue={backgroundValue}
@@ -1091,8 +1396,11 @@ export default function ImageGenerator() {
                   backgroundEffects={backgroundEffects}
                   textEffects={textEffects}
                   uploadedImage={null}
+                  uploadedImageObj={null}
+                  onUpdateImage={onUpdateImage}
                   imageSettings={imageSettings}
-                  texts={allTexts[-1] || []}
+                  drawingMode={drawingMode}
+                  texts={allTexts[activeImageIndex ?? -1] || []}
                   arrows={allArrows[-1] || []}
                   counters={allCounters[-1] || []}
                   redactions={allRedactions[-1] || []}
@@ -1116,11 +1424,11 @@ export default function ImageGenerator() {
                   onShapeUpdate={(id, props) => handleShapeUpdate(-1, id, props)}
                   onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(-1, id, props)}
                   onShapeDelete={(id) => handleShapeDelete(-1, id)}
+                  onImageSettingsChange={handleImageSettingChange}
                   selection={selection}
                   onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
                   editing={editing}
                   onSetEditing={handleSetEditing}
-                  drawingMode={drawingMode}
                   setDrawingMode={setDrawingMode}
                 />
               </div>
@@ -1153,11 +1461,27 @@ export default function ImageGenerator() {
               onUpdateShape={(props) => selection?.type === "shape" && handleShapeUpdateWithHistory(selection.canvasKey, selectedObject.id, props)}
               onUpdateEffects={(key, value) => handleTextEffectsUpdate({ [key]: value })}
               onUpdateSubEffects={handleTextSubEffectChange}
+              applyToAll={applyToAll}
+              onToggleApplyToAll={setApplyToAll}
             />
           )}
         </AnnotationToolbar>
         <ZoomControl zoom={canvasZoom} setZoom={setCanvasZoom} />
       </main>
+      <DevModeModal
+        isOpen={isDevMode}
+        onClose={() => setIsDevMode(false)}
+        config={{
+          imageSettings,
+          backgroundEffects,
+          gradient,
+        }}
+        onApply={(newConfig: any) => {
+          if (newConfig.imageSettings) setImageSettings(newConfig.imageSettings);
+          if (newConfig.backgroundEffects) setBackgroundEffects(newConfig.backgroundEffects);
+          if (newConfig.gradient) setGradient(newConfig.gradient);
+        }}
+      />
     </div>
   );
 }
