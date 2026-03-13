@@ -1,7 +1,8 @@
 "use client";
 import React, { forwardRef, useRef, useEffect, useCallback, useState } from 'react';
-import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject } from './types';
+import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject, UploadedImage } from './types';
 import { hexToRgba } from './utils/color';
+import { DEVICE_MOCKUPS } from './mockups';
 
 const NoiseOverlay: React.FC<{ opacity: number }> = ({ opacity }) => (
     <div
@@ -66,6 +67,94 @@ const PatternOverlay: React.FC<{ pattern: BackgroundEffects['pattern'], opacity:
                 backgroundSize
             }}
         />
+    );
+};
+
+// ─── Device Mockup Frame ─────────────────────────────────────────────────────
+/**
+ * Renders the user's screenshot INSIDE the device screen area.
+ *
+ * Layout:
+ *  - A centred container sized to the device's natural aspect ratio fills the canvas.
+ *  - A "screen area" div (at the correct % offsets from the PNG definition) clips
+ *    the user's image to exactly the screen rectangle.
+ *  - The device PNG overlays on top at z-index 1, hiding everything outside the screen.
+ */
+const DeviceMockupFrame: React.FC<{
+    mockupId: string;
+    color: 'dark' | 'light';
+    layout?: 'single' | 'grid-2' | 'grid-3';
+    uploadedImages: UploadedImage[];
+    fallbackImage: string;
+    padding: number;
+}> = ({ mockupId, color, layout = 'single', uploadedImages, fallbackImage, padding }) => {
+    const device = DEVICE_MOCKUPS.find(d => d.id === mockupId);
+    if (!device) return null;
+
+    const frameUrl = device.images[color] ?? device.images.dark;
+    const { x, y, width, height } = device.screen;
+    
+    const deviceCount = layout === 'grid-3' ? 3 : layout === 'grid-2' ? 2 : 1;
+    let displayImages = [];
+    
+    // We want to fill `deviceCount` slots.
+    // If the user hasn't uploaded enough images, repeat the first one over and over.
+    for (let i = 0; i < deviceCount; i++) {
+        if (uploadedImages.length > i) {
+            displayImages.push(uploadedImages[i].src);
+        } else if (uploadedImages.length > 0) {
+            // fallback to the first uploaded image
+            displayImages.push(uploadedImages[0].src);
+        } else {
+            // fallback to the single main editor image
+            displayImages.push(fallbackImage);
+        }
+    }
+
+    return (
+        <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 overflow-hidden"
+            style={{ padding: `${padding}px` }}
+        >
+            <div className={`relative flex items-center justify-center gap-4 w-full h-full min-w-0 min-h-0`}>
+                {displayImages.map((src, index) => (
+                    <div key={index} className="relative flex max-h-full max-w-full items-center justify-center h-full min-w-0 min-h-0 shrink">
+                        <div className="relative h-full inline-flex justify-center" style={{ aspectRatio: String(device.aspectRatio) }}>
+                            {/* Spacer image using frameUrl to naturally bound the size of this block */}
+                            <img
+                                src={frameUrl}
+                                className="h-full w-full opacity-0 pointer-events-none block"
+                                alt=""
+                                draggable={false}
+                            />
+
+                            <div className="absolute inset-0">
+                                {/* Screen area - clips the inner content perfectly to the device screen */}
+                                <div
+                                    className="absolute overflow-hidden pointer-events-auto bg-neutral-900"
+                                    style={{
+                                        left: `${x}%`,
+                                        top: `${y}%`,
+                                        width: `${width}%`,
+                                        height: `${height}%`,
+                                    }}
+                                >
+                                    <img src={src} className="w-full h-full object-cover" draggable={false} alt="Screen Content" />
+                                </div>
+
+                                {/* Frame overlay - sits above the screen area for inner shadows/bezels */}
+                                <img
+                                    src={frameUrl}
+                                    className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-2xl"
+                                    alt={device.name}
+                                    draggable={false}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 };
 
@@ -781,7 +870,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             onShapeAdd, onShapeUpdate, onShapeUpdateWithHistory, onShapeDelete,
             selection, onSelectObject, editing, onSetEditing, onActivate, isActive,
             setDrawingMode, onImageSettingsChange,
-            uploadedImageObj, uploadedImage
+            uploadedImageObj, uploadedImage, uploadedImages
         } = props;
 
         const localPreviewRef = useRef<HTMLDivElement>(null);
@@ -862,6 +951,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         };
 
         const getImageContainerStyle = (): React.CSSProperties => {
+            if (imageSettings.mockup) return { padding: '0px' };
             if (imageSettings.alignment === 'middle-center') return { padding: `${imageSettings.padding}px` };
             const edgePadding = '20px';
             const styles: React.CSSProperties = { paddingTop: edgePadding, paddingBottom: edgePadding, paddingLeft: edgePadding, paddingRight: edgePadding };
@@ -1034,155 +1124,194 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                     <NoiseOverlay opacity={backgroundEffects.noiseOpacity} />
                     <VignetteOverlay opacity={backgroundEffects.vignetteOpacity} />
 
-                    {proxiedUploadedImage && (
-                        <div
-                            className={`absolute inset-0 pointer-events-none z-10 ${!isManualPosition ? `flex ${alignmentClass}` : ''}`}
-                            style={!isManualPosition ? imageContainerStyle : undefined}
-                        >
-                            {/* Using inline-flex with lineHeight 0 to strictly wrap content without ghost spacing. */}
+                    {(() => {
+                        if (!proxiedUploadedImage) return null;
+
+                        if (imageSettings.mockup) {
+                             return (
+                                <DeviceMockupFrame
+                                    mockupId={imageSettings.mockup}
+                                    color={imageSettings.mockupColor ?? 'dark'}
+                                    layout={imageSettings.mockupLayout}
+                                    uploadedImages={uploadedImages}
+                                    fallbackImage={proxiedUploadedImage}
+                                    padding={imageSettings.padding}
+                                />
+                             );
+                        }
+
+                        const content = (
                             <div
-                                className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                                onPointerDown={handleImageDragStart}
-                                style={{
-                                    transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${imageSettings.scale})`,
-                                    transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
-                                    willChange: drawingMode === 'move' ? 'transform' : 'auto',
-                                    backfaceVisibility: 'hidden',
-                                    lineHeight: 0,
-                                    position: isManualPosition ? 'absolute' : 'relative',
-                                    left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
-                                    top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
-                                    // Use stored width/height if available, fallback to fit-content (auto wrapping)
-                                    width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
-                                    height: isManualPosition && uploadedImageObj?.width ? 'auto' : 'fit-content', // Depend on width to maintain aspect ratio
-                                    maxWidth: '100%',
-                                    maxHeight: '100%',
-                                }}
+                                className={`absolute inset-0 pointer-events-none z-10 ${!isManualPosition ? `flex ${alignmentClass}` : ''}`}
+                                style={!isManualPosition ? imageContainerStyle : undefined}
                             >
-                                {isManualPosition && drawingMode === 'move' && (
-                                    <>
-                                        {['nw', 'ne', 'sw', 'se'].map((cursor) => (
-                                            <div
-                                                key={cursor}
-                                                className={`absolute w-4 h-4 bg-white border-2 border-blue-500 rounded-full z-50 hover:bg-blue-100 transition-all opacity-0 group-hover:opacity-100`}
-                                                style={{
-                                                    cursor: `${cursor}-resize`,
-                                                    top: cursor.includes('n') ? '-8px' : 'auto',
-                                                    bottom: cursor.includes('s') ? '-8px' : 'auto',
-                                                    left: cursor.includes('w') ? '-8px' : 'auto',
-                                                    right: cursor.includes('e') ? '-8px' : 'auto',
-                                                }}
-                                                onPointerDown={(e) => {
-                                                    e.stopPropagation();
-                                                    e.preventDefault();
-                                                    const target = e.currentTarget;
-                                                    target.setPointerCapture(e.pointerId);
+                                {/* Using inline-flex with lineHeight 0 to strictly wrap content without ghost spacing. */}
+                                <div
+                                    className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                                    onPointerDown={handleImageDragStart}
+                                    style={{
+                                        transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${imageSettings.scale})`,
+                                        transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
+                                        willChange: drawingMode === 'move' ? 'transform' : 'auto',
+                                        backfaceVisibility: 'hidden',
+                                        lineHeight: 0,
+                                        position: isManualPosition ? 'absolute' : 'relative',
+                                        left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
+                                        top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
+                                        // Use stored width/height if available, fallback to fit-content (auto wrapping)
+                                        width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
+                                        height: isManualPosition && uploadedImageObj?.width ? 'auto' : 'fit-content', // Depend on width to maintain aspect ratio
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                    }}
+                                >
+                                    {isManualPosition && drawingMode === 'move' && (
+                                        <>
+                                            {['nw', 'ne', 'sw', 'se'].map((cursor) => (
+                                                <div
+                                                    key={cursor}
+                                                    className={`absolute w-4 h-4 bg-white border-2 border-blue-500 rounded-full z-50 hover:bg-blue-100 transition-all opacity-0 group-hover:opacity-100`}
+                                                    style={{
+                                                        cursor: `${cursor}-resize`,
+                                                        top: cursor.includes('n') ? '-8px' : 'auto',
+                                                        bottom: cursor.includes('s') ? '-8px' : 'auto',
+                                                        left: cursor.includes('w') ? '-8px' : 'auto',
+                                                        right: cursor.includes('e') ? '-8px' : 'auto',
+                                                    }}
+                                                    onPointerDown={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        const target = e.currentTarget;
+                                                        target.setPointerCapture(e.pointerId);
 
-                                                    const container = localPreviewRef.current;
-                                                    if (!container || !uploadedImageObj) return;
+                                                        const container = localPreviewRef.current;
+                                                        if (!container || !uploadedImageObj) return;
 
-                                                    const containerRect = container.getBoundingClientRect();
-                                                    const imageWrapper = target.parentElement as HTMLElement;
-                                                    const wrapperRect = imageWrapper.getBoundingClientRect();
+                                                        const containerRect = container.getBoundingClientRect();
+                                                        const imageWrapper = target.parentElement as HTMLElement;
+                                                        const wrapperRect = imageWrapper.getBoundingClientRect();
 
-                                                    const startX = e.clientX;
-                                                    // const startY = e.clientY; // Unused for uniform scaling logic based on X-axis dominance or hypotenuse
+                                                        const startX = e.clientX;
+                                                        // const startY = e.clientY; // Unused for uniform scaling logic based on X-axis dominance or hypotenuse
 
-                                                    const startWidthPercent = uploadedImageObj.width || (wrapperRect.width / containerRect.width) * 100;
-                                                    // const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100; // Unused
+                                                        const startWidthPercent = uploadedImageObj.width || (wrapperRect.width / containerRect.width) * 100;
+                                                        // const startHeightPercent = uploadedImageObj.height || (wrapperRect.height / containerRect.height) * 100; // Unused
 
-                                                    // const aspectRatio = wrapperRect.width / wrapperRect.height;
-                                                    const isLeft = cursor.includes('w');
-                                                    // const isTop = cursor.includes('n');
+                                                        // const aspectRatio = wrapperRect.width / wrapperRect.height;
+                                                        const isLeft = cursor.includes('w');
+                                                        // const isTop = cursor.includes('n');
 
-                                                    const onResizing = (moveEvent: PointerEvent) => {
-                                                        const dx = moveEvent.clientX - startX;
+                                                        const onResizing = (moveEvent: PointerEvent) => {
+                                                            const dx = moveEvent.clientX - startX;
 
-                                                        // Determine direction multiplier: dragging left corner left increases size (-dx adds width), right corner right adds width (+dx)
-                                                        // If isLeft (west), dx < 0 means increasing width.
-                                                        // If !isLeft (east), dx > 0 means increasing width.
-                                                        // Since the image is centered (translate -50%), varying width expands both ways visually, 
-                                                        // so the logic is: total width change = dx * 2 * (isLeft ? -1 : 1)
-                                                        // Wait, since it's width % based, we calculate absolute pixel diff then convert to % of container
+                                                            // Determine direction multiplier: dragging left corner left increases size (-dx adds width), right corner right adds width (+dx)
+                                                            // If isLeft (west), dx < 0 means increasing width.
+                                                            // If !isLeft (east), dx > 0 means increasing width.
+                                                            // Since the image is centered (translate -50%), varying width expands both ways visually, 
+                                                            // so the logic is: total width change = dx * 2 * (isLeft ? -1 : 1)
+                                                            // Wait, since it's width % based, we calculate absolute pixel diff then convert to % of container
 
-                                                        const changePx = dx * (isLeft ? -1 : 1);
-                                                        // We multiply by 2 because transforming from center effectively doubles the edge movement impact visually
-                                                        // BUT strictly speaking, we want the width to increase by X amount. 
-                                                        // If I drag right edge by 10px, width increases by 20px if I want the center to stay put? 
-                                                        // Yes, because `left: 50%` with `transform: translate(-50%)` means center is anchored. 
-                                                        // So to drag the right edge 10px further right, the width must grow by 20px (10px left, 10px right).
+                                                            const changePx = dx * (isLeft ? -1 : 1);
+                                                            // We multiply by 2 because transforming from center effectively doubles the edge movement impact visually
+                                                            // BUT strictly speaking, we want the width to increase by X amount. 
+                                                            // If I drag right edge by 10px, width increases by 20px if I want the center to stay put? 
+                                                            // Yes, because `left: 50%` with `transform: translate(-50%)` means center is anchored. 
+                                                            // So to drag the right edge 10px further right, the width must grow by 20px (10px left, 10px right).
 
-                                                        const changePercent = (changePx * 2 / containerRect.width) * 100;
+                                                            const changePercent = (changePx * 2 / containerRect.width) * 100;
 
-                                                        const newWidth = Math.max(5, startWidthPercent + changePercent); // Min 5% width
-                                                        // const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
+                                                            const newWidth = Math.max(5, startWidthPercent + changePercent); // Min 5% width
+                                                            // const newHeight = newWidth / aspectRatio * (containerRect.width / containerRect.height);
 
-                                                        onUpdateImage(uploadedImageObj.id, {
-                                                            width: newWidth,
-                                                            height: undefined // Ensure height is undefined
-                                                        });
-                                                    };
+                                                            onUpdateImage(uploadedImageObj.id, {
+                                                                width: newWidth,
+                                                                height: undefined // Ensure height is undefined
+                                                            });
+                                                        };
 
-                                                    const onResizeEnd = (upEvent: PointerEvent) => {
-                                                        document.removeEventListener('pointermove', onResizing);
-                                                        document.removeEventListener('pointerup', onResizeEnd);
-                                                        if (target.hasPointerCapture(upEvent.pointerId)) {
-                                                            target.releasePointerCapture(upEvent.pointerId);
-                                                        }
-                                                    };
+                                                        const onResizeEnd = (upEvent: PointerEvent) => {
+                                                            document.removeEventListener('pointermove', onResizing);
+                                                            document.removeEventListener('pointerup', onResizeEnd);
+                                                            if (target.hasPointerCapture(upEvent.pointerId)) {
+                                                                target.releasePointerCapture(upEvent.pointerId);
+                                                            }
+                                                        };
 
-                                                    document.addEventListener('pointermove', onResizing);
-                                                    document.addEventListener('pointerup', onResizeEnd);
-                                                }}
-                                            />
-                                        ))}
-                                    </>
-                                )}
-                                {imageSettings.glassmorphicBorder.enabled && (
-                                    <div
-                                        key={`glass-${imageSettings.corners}`}
-                                        className="absolute backdrop-blur-xl pointer-events-none z-0"
-                                        style={{
-                                            top: `-${imageSettings.glassmorphicBorder.size}px`,
-                                            left: `-${imageSettings.glassmorphicBorder.size}px`,
-                                            right: `-${imageSettings.glassmorphicBorder.size}px`,
-                                            bottom: `-${imageSettings.glassmorphicBorder.size}px`,
-                                            backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
-                                            border: `${Math.max(1, 1 / imageSettings.scale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
-                                            borderRadius: (() => {
-                                                const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
-                                                const a = imageSettings.alignment;
-                                                let tl = r, tr = r, br = r, bl = r;
-                                                if (!isManualPosition) {
-                                                    if (a.includes('top')) { tl = 0; tr = 0; }
-                                                    if (a.includes('bottom')) { bl = 0; br = 0; }
-                                                    if (a.includes('left')) { tl = 0; bl = 0; }
-                                                    if (a.includes('right')) { tr = 0; br = 0; }
-                                                }
-                                                return `${tl}px ${tr}px ${br}px ${bl}px`;
-                                            })(),
-                                            opacity: imageSettings.glassmorphicBorder.opacity,
-                                        }}
-                                    />
-                                )}
-                                <img src={proxiedUploadedImage || ""} style={{
-                                    ...imageStyle,
-                                    borderRadius: (() => {
-                                        const r = imageSettings.corners;
-                                        const a = imageSettings.alignment;
-                                        let tl = r, tr = r, br = r, bl = r;
-                                        if (!isManualPosition) {
-                                            if (a.includes('top')) { tl = 0; tr = 0; }
-                                            if (a.includes('bottom')) { bl = 0; br = 0; }
-                                            if (a.includes('left')) { tl = 0; bl = 0; }
-                                            if (a.includes('right')) { tr = 0; br = 0; }
-                                        }
-                                        return `${tl}px ${tr}px ${br}px ${bl}px`;
-                                    })(),
-                                }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
+                                                        document.addEventListener('pointermove', onResizing);
+                                                        document.addEventListener('pointerup', onResizeEnd);
+                                                    }}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
+                                    {imageSettings.glassmorphicBorder.enabled && !imageSettings.mockup && (
+                                        <div
+                                            key={`glass-${imageSettings.corners}`}
+                                            className="absolute backdrop-blur-xl pointer-events-none z-0"
+                                            style={{
+                                                top: `-${imageSettings.glassmorphicBorder.size}px`,
+                                                left: `-${imageSettings.glassmorphicBorder.size}px`,
+                                                right: `-${imageSettings.glassmorphicBorder.size}px`,
+                                                bottom: `-${imageSettings.glassmorphicBorder.size}px`,
+                                                backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
+                                                border: `${Math.max(1, 1 / imageSettings.scale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
+                                                borderRadius: (() => {
+                                                    const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
+                                                    const a = imageSettings.alignment;
+                                                    let tl = r, tr = r, br = r, bl = r;
+                                                    if (!isManualPosition) {
+                                                        if (a.includes('top')) { tl = 0; tr = 0; }
+                                                        if (a.includes('bottom')) { bl = 0; br = 0; }
+                                                        if (a.includes('left')) { tl = 0; bl = 0; }
+                                                        if (a.includes('right')) { tr = 0; br = 0; }
+                                                    }
+                                                    return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                                })(),
+                                                opacity: imageSettings.glassmorphicBorder.opacity,
+                                            }}
+                                        />
+                                    )}
+                                    <img src={proxiedUploadedImage || ""} style={{
+                                        ...imageStyle,
+                                        borderRadius: (() => {
+                                            if (imageSettings.mockup) return '0px';
+                                            const r = imageSettings.corners;
+                                            const a = imageSettings.alignment;
+                                            let tl = r, tr = r, br = r, bl = r;
+                                            if (!isManualPosition) {
+                                                if (a.includes('top')) { tl = 0; tr = 0; }
+                                                if (a.includes('bottom')) { bl = 0; br = 0; }
+                                                if (a.includes('left')) { tl = 0; bl = 0; }
+                                                if (a.includes('right')) { tr = 0; br = 0; }
+                                            }
+                                            return `${tl}px ${tr}px ${br}px ${bl}px`;
+                                        })(),
+                                    }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+
+                        return content;
+                    })()}
+
+                    {/* Show device frame only (no image yet) when mockup selected but no image uploaded */}
+                    {
+                        imageSettings.mockup && !proxiedUploadedImage && (() => {
+                            const device = DEVICE_MOCKUPS.find(d => d.id === imageSettings.mockup);
+                            if (!device) return null;
+                            const frameUrl = device.images[imageSettings.mockupColor ?? 'dark'];
+                            return (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                                    <div
+                                        className="relative flex-shrink-0"
+                                        style={{ height: '100%', aspectRatio: String(device.aspectRatio), maxWidth: '100%' }}
+                                    >
+                                        <img src={frameUrl} alt={device.name} className="absolute inset-0 w-full h-full object-fill" draggable={false} />
+                                    </div>
+                                </div>
+                            );
+                        })()
+                    }
 
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-30 overflow-visible">
                         <defs>
@@ -1222,20 +1351,28 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                         )}
                     </svg>
 
-                    {redactions && redactions.map(redact => (
-                        <RedactElement key={redact.id} canvasKey={canvasKey} redact={redact} isSelected={selection?.itemId === redact.id} onSelectObject={onSelectObject} onRedactUpdate={onRedactUpdate} onRedactUpdateWithHistory={onRedactUpdateWithHistory} previewRef={localPreviewRef} />
-                    ))}
-                    {shapes && shapes.map(shape => (
-                        <ShapeElement key={shape.id} canvasKey={canvasKey} shape={shape} isSelected={selection?.itemId === shape.id} onSelectObject={onSelectObject} onShapeUpdate={onShapeUpdate} onShapeUpdateWithHistory={onShapeUpdateWithHistory} previewRef={localPreviewRef} />
-                    ))}
-                    {texts.map(text => (
-                        <TextElement key={text.id} canvasKey={canvasKey} text={text} isSelected={selection?.canvasKey === canvasKey && selection.itemId === text.id && selection.type === 'text'} isEditing={editing?.canvasKey === canvasKey && editing.itemId === text.id} onSetEditing={onSetEditing} onSelectObject={onSelectObject} onTextUpdate={onTextUpdate} onTextUpdateWithHistory={onTextUpdateWithHistory} onTextDelete={onTextDelete} textEffects={textEffects} aspectRatio={aspectRatio} previewRef={localPreviewRef} />
-                    ))}
-                    {counters && counters.map(counter => (
-                        <CounterElement key={counter.id} canvasKey={canvasKey} counter={counter} isSelected={selection?.itemId === counter.id} onSelectObject={onSelectObject} onCounterUpdate={onCounterUpdate} onCounterUpdateWithHistory={onCounterUpdateWithHistory} previewRef={localPreviewRef} />
-                    ))}
-                </div>
-            </div>
+                    {
+                        redactions && redactions.map(redact => (
+                            <RedactElement key={redact.id} canvasKey={canvasKey} redact={redact} isSelected={selection?.itemId === redact.id} onSelectObject={onSelectObject} onRedactUpdate={onRedactUpdate} onRedactUpdateWithHistory={onRedactUpdateWithHistory} previewRef={localPreviewRef} />
+                        ))
+                    }
+                    {
+                        shapes && shapes.map(shape => (
+                            <ShapeElement key={shape.id} canvasKey={canvasKey} shape={shape} isSelected={selection?.itemId === shape.id} onSelectObject={onSelectObject} onShapeUpdate={onShapeUpdate} onShapeUpdateWithHistory={onShapeUpdateWithHistory} previewRef={localPreviewRef} />
+                        ))
+                    }
+                    {
+                        texts.map(text => (
+                            <TextElement key={text.id} canvasKey={canvasKey} text={text} isSelected={selection?.canvasKey === canvasKey && selection.itemId === text.id && selection.type === 'text'} isEditing={editing?.canvasKey === canvasKey && editing.itemId === text.id} onSetEditing={onSetEditing} onSelectObject={onSelectObject} onTextUpdate={onTextUpdate} onTextUpdateWithHistory={onTextUpdateWithHistory} onTextDelete={onTextDelete} textEffects={textEffects} aspectRatio={aspectRatio} previewRef={localPreviewRef} />
+                        ))
+                    }
+                    {
+                        counters && counters.map(counter => (
+                            <CounterElement key={counter.id} canvasKey={canvasKey} counter={counter} isSelected={selection?.itemId === counter.id} onSelectObject={onSelectObject} onCounterUpdate={onCounterUpdate} onCounterUpdateWithHistory={onCounterUpdateWithHistory} previewRef={localPreviewRef} />
+                        ))
+                    }
+                </div >
+            </div >
         );
     }
 );

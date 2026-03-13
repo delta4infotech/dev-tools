@@ -26,6 +26,9 @@ export interface ImageSettings {
     };
     x?: number;
     y?: number;
+    mockup?: string; // id of selected device mockup, or undefined for none
+    mockupColor?: 'dark' | 'light';
+    mockupLayout?: 'single' | 'grid-2' | 'grid-3';
 }
 
 export interface BackgroundEffects {
@@ -183,6 +186,7 @@ export interface ImagePreviewProps {
     textEffects: TextEffects;
     uploadedImage: string | null;
     uploadedImageObj: UploadedImage | null;
+    uploadedImages: UploadedImage[];
     onUpdateImage: (id: string, updates: Partial<UploadedImage>) => void;
 
     imageSettings: ImageSettings;

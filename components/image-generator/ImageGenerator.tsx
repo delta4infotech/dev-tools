@@ -1021,6 +1021,64 @@ export default function ImageGenerator() {
     }
   }, [selection, handleTextDelete, handleArrowDelete, handleCounterDelete, handleRedactDelete, handleShapeDelete]);
 
+  const [clipboard, setClipboard] = useState<{ type: string; data: any } | null>(null);
+
+  const handleCopySelected = useCallback(() => {
+    if (!selection) return;
+    const { canvasKey, itemId, type } = selection;
+    let data = null;
+    if (type === "text") data = allTexts[canvasKey]?.find(t => t.id === itemId);
+    else if (type === "arrow") data = allArrows[canvasKey]?.find(a => a.id === itemId);
+    else if (type === "counter") data = allCounters[canvasKey]?.find(c => c.id === itemId);
+    else if (type === "redact") data = allRedactions[canvasKey]?.find(r => r.id === itemId);
+    else if (type === "shape") data = allShapes[canvasKey]?.find(s => s.id === itemId);
+    
+    if (data) {
+      setClipboard({ type, data });
+    }
+  }, [selection, allTexts, allArrows, allCounters, allRedactions, allShapes]);
+
+  const handlePaste = useCallback(() => {
+    if (!clipboard) return;
+    const getChunkSize = () => {
+      if (!imageSettings.mockup) return 1;
+      if (imageSettings.mockupLayout === 'grid-3') return 3;
+      if (imageSettings.mockupLayout === 'grid-2') return 2;
+      return 1;
+    };
+    const activeCanvasKey = activeImageIndex !== null && uploadedImages.length > 0 ? Math.floor(activeImageIndex / getChunkSize()) : -1;
+    
+    pushToHistory();
+    
+    const newId = `${clipboard.type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const newData = { ...clipboard.data, id: newId };
+    
+    // offset slightly so it doesn't perfectly overlap
+    const offset = 2;
+    if (newData.x !== undefined) newData.x = Math.min(100, newData.x + offset);
+    if (newData.y !== undefined) newData.y = Math.min(100, newData.y + offset);
+    if (newData.xPosition !== undefined) newData.xPosition = Math.min(100, newData.xPosition + offset);
+    if (newData.yPosition !== undefined) newData.yPosition = Math.min(100, newData.yPosition + offset);
+    if (newData.start) {
+      newData.start = { x: Math.min(100, newData.start.x + offset), y: Math.min(100, newData.start.y + offset) };
+      newData.end = { x: Math.min(100, newData.end.x + offset), y: Math.min(100, newData.end.y + offset) };
+    }
+    
+    if (clipboard.type === "text") {
+      setAllTexts(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    } else if (clipboard.type === "arrow") {
+      setAllArrows(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    } else if (clipboard.type === "counter") {
+      setAllCounters(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    } else if (clipboard.type === "redact") {
+      setAllRedactions(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    } else if (clipboard.type === "shape") {
+      setAllShapes(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    }
+    
+    setSelection({ canvasKey: activeCanvasKey, itemId: newId, type: clipboard.type as any });
+  }, [clipboard, activeImageIndex, imageSettings.mockup, imageSettings.mockupLayout, uploadedImages.length, pushToHistory]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (editing) return;
@@ -1031,10 +1089,21 @@ export default function ImageGenerator() {
         e.preventDefault();
         handleDeleteSelected();
       }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modifier && e.key.toLowerCase() === 'c' && selection) {
+        e.preventDefault();
+        handleCopySelected();
+      } else if (modifier && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        handlePaste();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selection, editing, handleDeleteSelected]);
+  }, [selection, editing, handleDeleteSelected, handleCopySelected, handlePaste]);
 
   const generateNewGradient = useCallback(() => {
     setGradient(generateRandomGradient());
@@ -1326,113 +1395,135 @@ export default function ImageGenerator() {
           }}
         >
           <div className="m-auto transition-transform duration-200 ease-in-out" style={{ transform: `scale(${canvasZoom})`, transformOrigin: "center" }}>
-            {uploadedImages.length > 0 ? (
-              <div className={uploadedImages.length > 1 ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 p-4 w-[90vw]" : "p-4 w-[min(80vh,90vw,1200px)]"}>
-                {uploadedImages.map((image, index) => (
-                  <div key={image.id} className="w-full" onClick={(e) => e.stopPropagation()}>
-                    <ImagePreview
-                      ref={(el) => {
-                        previewRefs.current[index] = el;
-                      }}
-                      canvasKey={index}
-                      isActive={activeImageIndex === index}
-                      onActivate={() => setActiveImageIndex(index)}
-                      previewContainerRef={previewContainerRef}
-                      aspectRatio={aspectRatio}
-                      backgroundValue={backgroundValue}
-                      backgroundImage={backgroundImage}
-                      backgroundEffects={backgroundEffects}
-                      textEffects={textEffects}
-                      uploadedImage={image.src}
-                      uploadedImageObj={image}
-                      onUpdateImage={onUpdateImage}
-                      imageSettings={imageSettings}
-                      texts={allTexts[index] || []}
-                      arrows={allArrows[index] || []}
-                      counters={allCounters[index] || []}
-                      redactions={allRedactions[index] || []}
-                      shapes={allShapes[index] || []}
-                      onTextUpdate={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdate(index, id, props)}
-                      onTextUpdateWithHistory={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdateWithHistory(index, id, props)}
-                      onTextDelete={(id: string) => handleTextDelete(index, id)}
-                      onArrowAdd={(arrow: Omit<ArrowObject, "id" | "type">) => handleArrowAdd(index, arrow)}
-                      onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(index, id, props)}
-                      onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(index, id, props)}
-                      onArrowDelete={(id: string) => handleArrowDelete(index, id)}
-                      onCounterAdd={handleCounterAdd}
-                      onCounterUpdate={(id, props) => handleCounterUpdate(index, id, props)}
-                      onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(index, id, props)}
-                      onCounterDelete={(id) => handleCounterDelete(index, id)}
-                      onRedactAdd={(redact) => handleRedactAdd(index, redact)}
-                      onRedactUpdate={(id, props) => handleRedactUpdate(index, id, props)}
-                      onRedactUpdateWithHistory={(id, props) => handleRedactUpdateWithHistory(index, id, props)}
-                      onRedactDelete={(id) => handleRedactDelete(index, id)}
-                      onShapeAdd={(shape) => handleShapeAdd(index, shape)}
-                      onShapeUpdate={(id, props) => handleShapeUpdate(index, id, props)}
-                      onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(index, id, props)}
-                      onShapeDelete={(id) => handleShapeDelete(index, id)}
-                      selection={selection}
-                      onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
-                      editing={editing}
-                      onSetEditing={handleSetEditing}
-                      drawingMode={drawingMode}
-                      setDrawingMode={setDrawingMode}
-                      onImageSettingsChange={handleImageSettingChange}
-                    />
+            {(() => {
+              const getChunkSize = () => {
+                if (!imageSettings.mockup) return 1;
+                if (imageSettings.mockupLayout === 'grid-3') return 3;
+                if (imageSettings.mockupLayout === 'grid-2') return 2;
+                return 1;
+              };
+              const chunkSize = getChunkSize();
+              const chunks = [];
+              for (let i = 0; i < uploadedImages.length; i += chunkSize) {
+                chunks.push(uploadedImages.slice(i, i + chunkSize));
+              }
+
+              const activeChunkIndex = activeImageIndex !== null ? Math.floor(activeImageIndex / chunkSize) : null;
+
+              if (chunks.length > 0) {
+                return (
+                  <div className={chunks.length > 1 ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 p-4 w-[90vw]" : "p-4 w-[min(80vh,90vw,1200px)]"}>
+                    {chunks.map((chunk, index) => (
+                      <div key={chunk[0].id} className="w-full" onClick={(e) => e.stopPropagation()}>
+                        <ImagePreview
+                          ref={(el) => {
+                            previewRefs.current[index] = el;
+                          }}
+                          canvasKey={index}
+                          isActive={activeChunkIndex === index}
+                          onActivate={() => setActiveImageIndex(index * chunkSize)}
+                          previewContainerRef={previewContainerRef}
+                          aspectRatio={aspectRatio}
+                          backgroundValue={backgroundValue}
+                          backgroundImage={backgroundImage}
+                          backgroundEffects={backgroundEffects}
+                          textEffects={textEffects}
+                          uploadedImage={chunk[0].src}
+                          uploadedImageObj={chunk[0]}
+                          uploadedImages={chunk}
+                          onUpdateImage={onUpdateImage}
+                          imageSettings={imageSettings}
+                          texts={allTexts[index] || []}
+                          arrows={allArrows[index] || []}
+                          counters={allCounters[index] || []}
+                          redactions={allRedactions[index] || []}
+                          shapes={allShapes[index] || []}
+                          onTextUpdate={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdate(index, id, props)}
+                          onTextUpdateWithHistory={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdateWithHistory(index, id, props)}
+                          onTextDelete={(id: string) => handleTextDelete(index, id)}
+                          onArrowAdd={(arrow: Omit<ArrowObject, "id" | "type">) => handleArrowAdd(index, arrow)}
+                          onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(index, id, props)}
+                          onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(index, id, props)}
+                          onArrowDelete={(id: string) => handleArrowDelete(index, id)}
+                          onCounterAdd={handleCounterAdd}
+                          onCounterUpdate={(id, props) => handleCounterUpdate(index, id, props)}
+                          onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(index, id, props)}
+                          onCounterDelete={(id) => handleCounterDelete(index, id)}
+                          onRedactAdd={(redact) => handleRedactAdd(index, redact)}
+                          onRedactUpdate={(id, props) => handleRedactUpdate(index, id, props)}
+                          onRedactUpdateWithHistory={(id, props) => handleRedactUpdateWithHistory(index, id, props)}
+                          onRedactDelete={(id) => handleRedactDelete(index, id)}
+                          onShapeAdd={(shape) => handleShapeAdd(index, shape)}
+                          onShapeUpdate={(id, props) => handleShapeUpdate(index, id, props)}
+                          onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(index, id, props)}
+                          onShapeDelete={(id) => handleShapeDelete(index, id)}
+                          selection={selection}
+                          onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
+                          editing={editing}
+                          onSetEditing={handleSetEditing}
+                          drawingMode={drawingMode}
+                          setDrawingMode={setDrawingMode}
+                          onImageSettingsChange={handleImageSettingChange}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 w-[min(80vh,90vw,1200px)]" onClick={(e) => e.stopPropagation()}>
-                <ImagePreview
-                  ref={singlePreviewRef}
-                  canvasKey={-1}
-                  isActive={true}
-                  onActivate={() => { }}
-                  previewContainerRef={previewContainerRef}
-                  aspectRatio={aspectRatio}
-                  backgroundValue={backgroundValue}
-                  backgroundImage={backgroundImage}
-                  backgroundEffects={backgroundEffects}
-                  textEffects={textEffects}
-                  uploadedImage={null}
-                  uploadedImageObj={null}
-                  onUpdateImage={onUpdateImage}
-                  imageSettings={imageSettings}
-                  drawingMode={drawingMode}
-                  texts={allTexts[activeImageIndex ?? -1] || []}
-                  arrows={allArrows[-1] || []}
-                  counters={allCounters[-1] || []}
-                  redactions={allRedactions[-1] || []}
-                  shapes={allShapes[-1] || []}
-                  onTextUpdate={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdate(-1, id, props)}
-                  onTextUpdateWithHistory={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdateWithHistory(-1, id, props)}
-                  onTextDelete={(id: string) => handleTextDelete(-1, id)}
-                  onArrowAdd={(arrow: Omit<ArrowObject, "id" | "type">) => handleArrowAdd(-1, arrow)}
-                  onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(-1, id, props)}
-                  onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(-1, id, props)}
-                  onArrowDelete={(id: string) => handleArrowDelete(-1, id)}
-                  onCounterAdd={handleCounterAdd}
-                  onCounterUpdate={(id, props) => handleCounterUpdate(-1, id, props)}
-                  onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(-1, id, props)}
-                  onCounterDelete={(id) => handleCounterDelete(-1, id)}
-                  onRedactAdd={(redact) => handleRedactAdd(-1, redact)}
-                  onRedactUpdate={(id, props) => handleRedactUpdate(-1, id, props)}
-                  onRedactUpdateWithHistory={(id, props) => handleRedactUpdateWithHistory(-1, id, props)}
-                  onRedactDelete={(id) => handleRedactDelete(-1, id)}
-                  onShapeAdd={(shape) => handleShapeAdd(-1, shape)}
-                  onShapeUpdate={(id, props) => handleShapeUpdate(-1, id, props)}
-                  onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(-1, id, props)}
-                  onShapeDelete={(id) => handleShapeDelete(-1, id)}
-                  onImageSettingsChange={handleImageSettingChange}
-                  selection={selection}
-                  onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
-                  editing={editing}
-                  onSetEditing={handleSetEditing}
-                  setDrawingMode={setDrawingMode}
-                />
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="p-4 w-[min(80vh,90vw,1200px)]" onClick={(e) => e.stopPropagation()}>
+                  <ImagePreview
+                    ref={singlePreviewRef}
+                    canvasKey={-1}
+                    isActive={true}
+                    onActivate={() => { }}
+                    previewContainerRef={previewContainerRef}
+                    aspectRatio={aspectRatio}
+                    backgroundValue={backgroundValue}
+                    backgroundImage={backgroundImage}
+                    backgroundEffects={backgroundEffects}
+                    textEffects={textEffects}
+                    uploadedImage={null}
+                    uploadedImageObj={null}
+                    uploadedImages={[]}
+                    onUpdateImage={onUpdateImage}
+                    imageSettings={imageSettings}
+                    drawingMode={drawingMode}
+                    texts={allTexts[activeImageIndex ?? -1] || []}
+                    arrows={allArrows[-1] || []}
+                    counters={allCounters[-1] || []}
+                    redactions={allRedactions[-1] || []}
+                    shapes={allShapes[-1] || []}
+                    onTextUpdate={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdate(-1, id, props)}
+                    onTextUpdateWithHistory={(id: string, props: Partial<Omit<TextObject, "id">>) => handleTextUpdateWithHistory(-1, id, props)}
+                    onTextDelete={(id: string) => handleTextDelete(-1, id)}
+                    onArrowAdd={(arrow: Omit<ArrowObject, "id" | "type">) => handleArrowAdd(-1, arrow)}
+                    onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(-1, id, props)}
+                    onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(-1, id, props)}
+                    onArrowDelete={(id: string) => handleArrowDelete(-1, id)}
+                    onCounterAdd={handleCounterAdd}
+                    onCounterUpdate={(id, props) => handleCounterUpdate(-1, id, props)}
+                    onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(-1, id, props)}
+                    onCounterDelete={(id) => handleCounterDelete(-1, id)}
+                    onRedactAdd={(redact) => handleRedactAdd(-1, redact)}
+                    onRedactUpdate={(id, props) => handleRedactUpdate(-1, id, props)}
+                    onRedactUpdateWithHistory={(id, props) => handleRedactUpdateWithHistory(-1, id, props)}
+                    onRedactDelete={(id) => handleRedactDelete(-1, id)}
+                    onShapeAdd={(shape) => handleShapeAdd(-1, shape)}
+                    onShapeUpdate={(id, props) => handleShapeUpdate(-1, id, props)}
+                    onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(-1, id, props)}
+                    onShapeDelete={(id) => handleShapeDelete(-1, id)}
+                    selection={selection}
+                    onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
+                    editing={editing}
+                    onSetEditing={handleSetEditing}
+                    setDrawingMode={setDrawingMode}
+                    onImageSettingsChange={handleImageSettingChange}
+                  />
+                </div>
+              );
+            })()}
           </div>
         </div>
         <AnnotationToolbar
