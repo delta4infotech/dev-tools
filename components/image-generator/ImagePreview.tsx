@@ -95,7 +95,7 @@ const DeviceMockupFrame: React.FC<{
     const { x, y, width, height } = device.screen;
     
     const deviceCount = layout === 'grid-3' ? 3 : layout === 'grid-2' ? 2 : 1;
-    let displayImages = [];
+    const displayImages: string[] = [];
     
     // We want to fill `deviceCount` slots.
     // If the user hasn't uploaded enough images, repeat the first one over and over.
