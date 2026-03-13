@@ -26,14 +26,19 @@ export interface DeviceMockup {
   aspectRatio: number;
 }
 
+const isProd = process.env.NODE_ENV === 'production';
+const BASE_PATH = isProd ? '/tools' : '';
+
+const getAssetPath = (path: string) => `${BASE_PATH}${path}`;
+
 export const DEVICE_MOCKUPS: DeviceMockup[] = [
   {
     id: 'iphone',
     name: 'iPhone',
     category: 'phone',
     images: {
-      dark: '/mockups/iphone-black.png',
-      light: '/mockups/iphone-silver.png',
+      dark: getAssetPath('/mockups/iphone-black.png'),
+      light: getAssetPath('/mockups/iphone-silver.png'),
     },
     // iPhone X portrait PNG (726x1444)
     // Bleed slightly under the bezel to prevent 1px gaps
@@ -45,8 +50,8 @@ export const DEVICE_MOCKUPS: DeviceMockup[] = [
     name: 'Android',
     category: 'phone',
     images: {
-      dark: '/mockups/pixel-black.png',
-      light: '/mockups/pixel-white.png',
+      dark: getAssetPath('/mockups/pixel-black.png'),
+      light: getAssetPath('/mockups/pixel-white.png'),
     },
     // Google Pixel portrait PNG (1230x2386)
     // Bleed slightly under the bezel to prevent 1px gaps
