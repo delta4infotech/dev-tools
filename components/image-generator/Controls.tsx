@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
 import type { ControlsProps, AspectRatio, Alignment, ImageSettings, BackgroundEffects } from "./types";
+import { DEVICE_MOCKUPS } from "./mockups";
 import {
   AlignTopLeft,
   AlignTopCenter,
@@ -528,6 +529,60 @@ export const Controls: React.FC<ControlsProps> = (props) => {
             </div>
           </AccordionContent>
         </AccordionItem>
+
+        <AccordionItem value="devices">
+          <AccordionTrigger>Devices</AccordionTrigger>
+          <AccordionContent className="p-1">
+            <div className="space-y-4">
+              {/* Device grid */}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => handleImageSettingChange('mockup', undefined)}
+                  className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-medium transition-all ${!imageSettings.mockup
+                    ? 'bg-blue-600 border-blue-600 text-white'
+                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white'
+                    }`}
+                >
+                  <span className="text-lg mb-0.5">✕</span>
+                  <span>None</span>
+                </button>
+                {DEVICE_MOCKUPS.map((device) => (
+                  <button
+                    key={device.id}
+                    onClick={() => handleImageSettingChange('mockup', device.id)}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-medium transition-all ${imageSettings.mockup === device.id
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white'
+                      }`}
+                  >
+                    <span>{device.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Layout variant */}
+              {imageSettings.mockup && (
+                <div className="space-y-2 pt-2 border-t border-neutral-800">
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">Grid Layout</label>
+                  <div className="flex bg-neutral-900/50 p-1 rounded-lg border border-white/5">
+                    {(['single', 'grid-2', 'grid-3'] as const).map((variant) => (
+                      <button
+                        key={variant}
+                        onClick={() => handleImageSettingChange('mockupLayout', variant)}
+                        className={`flex-1 py-1.5 text-sm font-medium rounded-md capitalize transition-all ${(imageSettings.mockupLayout ?? 'single') === variant
+                          ? 'bg-neutral-700 text-white shadow-sm'
+                          : 'text-neutral-400 hover:text-white'
+                          }`}
+                      >
+                        {variant === 'single' ? 'Single' : variant === 'grid-2' ? '2 Devices' : '3 Devices'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
       </Accordion>
 
       <div className="p-4 border-t border-neutral-800 space-y-4 bg-neutral-900/50 backdrop-blur-sm fixed bottom-0 left-0 right-0 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:bg-transparent lg:border-none lg:p-0">
@@ -578,6 +633,6 @@ export const Controls: React.FC<ControlsProps> = (props) => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
