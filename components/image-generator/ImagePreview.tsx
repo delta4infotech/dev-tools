@@ -3,6 +3,7 @@ import React, { forwardRef, useRef, useEffect, useCallback, useState } from 'rea
 import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject, UploadedImage } from './types';
 import { hexToRgba } from './utils/color';
 import { DEVICE_MOCKUPS } from './mockups';
+import { getAssetUrl, getProxyUrl } from './utils/url';
 
 const NoiseOverlay: React.FC<{ opacity: number }> = ({ opacity }) => (
     <div
@@ -87,8 +88,7 @@ const DeviceMockupFrame: React.FC<{
     uploadedImages: UploadedImage[];
     fallbackImage: string;
     padding: number;
-    scale: number;
-}> = ({ mockupId, color, layout = 'single', uploadedImages, fallbackImage, padding, scale }) => {
+}> = ({ mockupId, color, layout = 'single', uploadedImages, fallbackImage, padding }) => {
     const device = DEVICE_MOCKUPS.find(d => d.id === mockupId);
     if (!device) return null;
 
@@ -115,11 +115,7 @@ const DeviceMockupFrame: React.FC<{
     return (
         <div 
             className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 overflow-hidden"
-            style={{ 
-                padding: `${padding}px`,
-                transform: `scale(${scale})`,
-                transformOrigin: 'center'
-            }}
+            style={{ padding: `${padding}px` }}
         >
             <div className={`relative flex items-center justify-center gap-4 w-full h-full min-w-0 min-h-0`}>
                 {displayImages.map((src, index) => (
@@ -142,10 +138,9 @@ const DeviceMockupFrame: React.FC<{
                                         top: `${y}%`,
                                         width: `${width}%`,
                                         height: `${height}%`,
-                                        imageRendering: 'high-quality' as any,
                                     }}
                                 >
-                                    <img src={src} className="w-full h-full object-cover" style={{ imageRendering: 'high-quality' as any }} draggable={false} alt="Screen Content" />
+                                    <img src={src} className="w-full h-full object-cover" draggable={false} alt="Screen Content" />
                                 </div>
 
                                 {/* Frame overlay - sits above the screen area for inner shadows/bezels */}
@@ -1069,8 +1064,14 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
         const getProxiedUrl = useCallback((url: string | null) => {
             if (!url) return null;
-            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) return url;
-            return `/api/proxy?url=${encodeURIComponent(url)}`;
+            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
+                // If it's a relative path, it might still need the basePath if it's not a data/blob URL
+                if (url.startsWith('/')) {
+                    return getAssetUrl(url);
+                }
+                return url;
+            }
+            return getProxyUrl(url);
         }, []);
 
         const proxiedBackgroundImage = getProxiedUrl(backgroundImage);
@@ -1142,7 +1143,6 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                     uploadedImages={uploadedImages}
                                     fallbackImage={proxiedUploadedImage}
                                     padding={imageSettings.padding}
-                                    scale={imageSettings.scale}
                                 />
                              );
                         }
@@ -1291,8 +1291,8 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                                 if (a.includes('left')) { tl = 0; bl = 0; }
                                                 if (a.includes('right')) { tr = 0; br = 0; }
                                             }
+                                            return `${tl}px ${tr}px ${br}px ${bl}px`;
                                         })(),
-                                        imageRendering: 'high-quality' as any,
                                     }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
                                 </div>
                             </div>
