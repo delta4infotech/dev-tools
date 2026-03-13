@@ -1,3 +1,5 @@
+import { getAssetUrl } from './utils/url';
+
 export interface DeviceMockup {
   id: string;
   name: string;
@@ -32,8 +34,8 @@ export const DEVICE_MOCKUPS: DeviceMockup[] = [
     name: 'iPhone',
     category: 'phone',
     images: {
-      dark: '/mockups/iphone-black.png',
-      light: '/mockups/iphone-silver.png',
+      dark: getAssetUrl('/mockups/iphone-black.png'),
+      light: getAssetUrl('/mockups/iphone-silver.png'),
     },
     // iPhone X portrait PNG (726x1444)
     // Bleed slightly under the bezel to prevent 1px gaps
@@ -45,8 +47,8 @@ export const DEVICE_MOCKUPS: DeviceMockup[] = [
     name: 'Android',
     category: 'phone',
     images: {
-      dark: '/mockups/pixel-black.png',
-      light: '/mockups/pixel-white.png',
+      dark: getAssetUrl('/mockups/pixel-black.png'),
+      light: getAssetUrl('/mockups/pixel-white.png'),
     },
     // Google Pixel portrait PNG (1230x2386)
     // Bleed slightly under the bezel to prevent 1px gaps

@@ -3,6 +3,7 @@ import React, { forwardRef, useRef, useEffect, useCallback, useState } from 'rea
 import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject, UploadedImage } from './types';
 import { hexToRgba } from './utils/color';
 import { DEVICE_MOCKUPS } from './mockups';
+import { getAssetUrl, getProxyUrl } from './utils/url';
 
 const NoiseOverlay: React.FC<{ opacity: number }> = ({ opacity }) => (
     <div
@@ -95,7 +96,7 @@ const DeviceMockupFrame: React.FC<{
     const { x, y, width, height } = device.screen;
     
     const deviceCount = layout === 'grid-3' ? 3 : layout === 'grid-2' ? 2 : 1;
-    let displayImages = [];
+    const displayImages: string[] = [];
     
     // We want to fill `deviceCount` slots.
     // If the user hasn't uploaded enough images, repeat the first one over and over.
@@ -1063,8 +1064,14 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
         const getProxiedUrl = useCallback((url: string | null) => {
             if (!url) return null;
-            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) return url;
-            return `/api/proxy?url=${encodeURIComponent(url)}`;
+            if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
+                // If it's a relative path, it might still need the basePath if it's not a data/blob URL
+                if (url.startsWith('/')) {
+                    return getAssetUrl(url);
+                }
+                return url;
+            }
+            return getProxyUrl(url);
         }, []);
 
         const proxiedBackgroundImage = getProxiedUrl(backgroundImage);
