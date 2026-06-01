@@ -1,6 +1,7 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
 import type { ControlsProps, AspectRatio, Alignment, ImageSettings, BackgroundEffects } from "./types";
+import { ASPECT_RATIO_PRESETS } from "./types";
 import { DEVICE_MOCKUPS } from "./mockups";
 import {
   AlignTopLeft,
@@ -22,7 +23,14 @@ import {
   Unlock,
   Monitor,
   ChevronUp,
+  ChevronDown,
   ArrowLeft,
+  Copy,
+  Check,
+  Image as ImageIcon,
+  Layers,
+  Sparkles,
+  Smartphone,
 } from "./icons";
 
 import Link from "next/link";
@@ -43,21 +51,6 @@ export const PRESET_BACKGROUNDS = [
   { name: "Grainy Gradient 1", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-2.png" },
   { name: "Grainy Gradient 2", url: "https://assets.delta4infotech.com/tools/bg-studio/bg-gradient-3.jpg" },
 ];
-
-const AspectRatioButton: React.FC<{
-  label: string;
-  value: AspectRatio;
-  currentValue: AspectRatio;
-  onClick: (value: AspectRatio) => void;
-}> = ({ label, value, currentValue, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`flex-1 p-2 text-sm rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900 focus:ring-blue-500 ${value === currentValue ? "bg-blue-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
-      }`}
-  >
-    {label}
-  </button>
-);
 
 const CustomGradientEditor: React.FC<{
   gradient: ControlsProps["gradient"];
@@ -157,6 +150,12 @@ export const Controls: React.FC<ControlsProps> = (props) => {
     generateNewGradient,
     onDownloadSingle,
     onDownloadZip,
+    onCopyToClipboard,
+    copyStatus,
+    exportFormat,
+    setExportFormat,
+    exportQuality,
+    setExportQuality,
     isDownloading,
     setBackgroundImage,
     onDevModeClick,
@@ -164,7 +163,12 @@ export const Controls: React.FC<ControlsProps> = (props) => {
   } = props;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundInputRef = useRef<HTMLInputElement>(null);
-  const [openAccordionItems, setOpenAccordionItems] = useState(["foreground", "background"]);
+  const [activeTab, setActiveTab] = useState<"image" | "background" | "effects" | "devices">("image");
+  const [showAdvancedImage, setShowAdvancedImage] = useState(false);
+  const [showAdvancedEffects, setShowAdvancedEffects] = useState(false);
+  const [isCanvasMenuOpen, setIsCanvasMenuOpen] = useState(false);
+  const canvasMenuRef = useRef<HTMLDivElement>(null);
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>(["foreground", "background"]);
   const [activeBackgroundTab, setActiveBackgroundTab] = useState<"color" | "image">("color");
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -187,12 +191,39 @@ export const Controls: React.FC<ControlsProps> = (props) => {
       if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target as Node)) {
         setIsDownloadMenuOpen(false);
       }
+      if (canvasMenuRef.current && !canvasMenuRef.current.contains(event.target as Node)) {
+        setIsCanvasMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const TABS: { id: typeof activeTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
+    { id: "image", label: "Image", Icon: ImageIcon },
+    { id: "background", label: "Background", Icon: Layers },
+    { id: "effects", label: "Effects", Icon: Sparkles },
+    { id: "devices", label: "Devices", Icon: Smartphone },
+  ];
+
+  // Sync the new activeTab to the accordion's open-items array so the existing accordion
+  // markup keeps working without restructuring all of it. Only the active tab's section
+  // is in the open list; the others stay closed and hidden by their own AccordionContent.
+  useEffect(() => {
+    const next = (() => {
+      switch (activeTab) {
+        case "image": return ["foreground"];
+        case "background": return ["background"];
+        case "effects": return ["background-effects"];
+        case "devices": return ["devices"];
+      }
+    })();
+    setOpenAccordionItems(next);
+  }, [activeTab]);
+
+  const currentPreset = ASPECT_RATIO_PRESETS.find((p) => p.id === aspectRatio);
 
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleBackgroundUploadClick = () => backgroundInputRef.current?.click();
@@ -230,6 +261,10 @@ export const Controls: React.FC<ControlsProps> = (props) => {
         stream.getTracks().forEach((track) => track.stop());
       };
     } catch (err) {
+      const error = err instanceof DOMException ? err : null;
+      if (error?.name === "NotAllowedError" || error?.name === "AbortError") {
+        return;
+      }
       console.error("Error taking screenshot:", err);
     }
   };
@@ -237,27 +272,86 @@ export const Controls: React.FC<ControlsProps> = (props) => {
   const isPaddingDisabled = imageSettings.alignment !== "middle-center";
 
   return (
-    <div className="flex flex-col space-y-6 min-h-full">
-      <div className="hidden lg:block px-1">
-        <Link href="/" className="inline-flex items-center text-sm text-neutral-400 hover:text-white mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Tools
-        </Link>
-        <h1 className="text-2xl font-bold text-neutral-100">BG Studio</h1>
-        <p className="text-base text-neutral-400 mt-1">Create your visual content.</p>
+    <div className="flex flex-col min-h-full">
+      {/* Compact sticky header with title + canvas-size pill */}
+      <div className="hidden lg:flex items-center justify-between gap-3 px-1 pb-4 mb-4 border-b border-neutral-800">
+        <div className="min-w-0">
+          <Link href="/" className="inline-flex items-center text-xs text-neutral-500 hover:text-white mb-1 transition-colors">
+            <ArrowLeft className="w-3 h-3 mr-1" />
+            Back
+          </Link>
+          <h1 className="text-lg font-bold text-neutral-100 leading-tight">BG Studio</h1>
+        </div>
+        <div className="relative flex-shrink-0" ref={canvasMenuRef}>
+          <button
+            onClick={() => setIsCanvasMenuOpen((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium text-neutral-200 border border-neutral-700 transition-colors"
+            title="Canvas size"
+          >
+            <div
+              className="rounded-sm border border-neutral-400"
+              style={{
+                width: (currentPreset && currentPreset.width >= currentPreset.height) ? 18 : 12,
+                height: (currentPreset && currentPreset.width <= currentPreset.height) ? 18 : 12,
+              }}
+            />
+            <span className="font-mono tabular-nums text-xs">{aspectRatio}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCanvasMenuOpen ? "rotate-180" : ""}`} />
+          </button>
+          {isCanvasMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 w-72 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 p-2 grid grid-cols-3 gap-1.5">
+              {ASPECT_RATIO_PRESETS.map((preset) => {
+                const isPortrait = preset.height > preset.width;
+                const isSquare = preset.width === preset.height;
+                const previewWidth = isSquare ? 16 : isPortrait ? 12 : 20;
+                const previewHeight = isSquare ? 16 : isPortrait ? 20 : 12;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setAspectRatio(preset.id);
+                      setIsCanvasMenuOpen(false);
+                    }}
+                    title={`${preset.label} — ${preset.description} (${preset.width}×${preset.height})`}
+                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-colors text-center ${
+                      preset.id === aspectRatio ? "bg-blue-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+                    }`}
+                  >
+                    <div
+                      className={`rounded-sm border ${preset.id === aspectRatio ? "border-white/80 bg-white/30" : "border-neutral-500 bg-neutral-600"}`}
+                      style={{ width: previewWidth, height: previewHeight }}
+                    />
+                    <span className="text-[10px] font-medium leading-tight">{preset.label}</span>
+                    <span className={`text-[9px] font-mono tabular-nums ${preset.id === aspectRatio ? "text-blue-100" : "text-neutral-500"}`}>{preset.id}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-4 pt-4 border-t border-neutral-800">
-        <label className="block text-sm font-semibold text-neutral-300 px-1">Canvas</label>
-        <div className="flex space-x-2">
-          <AspectRatioButton label="Square (1:1)" value="1:1" currentValue={aspectRatio} onClick={setAspectRatio} />
-          <AspectRatioButton label="Wide (16:9)" value="16:9" currentValue={aspectRatio} onClick={setAspectRatio} />
-        </div>
+      {/* Tab navigation */}
+      <div className="flex items-center gap-1 mb-5 bg-neutral-900/50 rounded-xl p-1 border border-white/5">
+        {TABS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            title={label}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 rounded-lg transition-all text-xs font-medium ${
+              activeTab === id ? "bg-neutral-700 text-white shadow-sm" : "text-neutral-400 hover:text-white hover:bg-neutral-800/50"
+            }`}
+            aria-pressed={activeTab === id}
+          >
+            <Icon className="w-4 h-4" />
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
       <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full flex-grow space-y-2">
         <AccordionItem value="foreground">
-          <AccordionTrigger>Foreground</AccordionTrigger>
+          <AccordionTrigger className="hidden">Foreground</AccordionTrigger>
           <AccordionContent className="p-1">
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple className="hidden" accept="image/png, image/jpeg, image/webp" />
             {uploadedImages.length > 0 ? (
@@ -344,46 +438,59 @@ export const Controls: React.FC<ControlsProps> = (props) => {
                   </div>
                 </div>
 
-                <div className="space-y-6 pt-6 border-t border-neutral-800">
-                  <label className="block text-sm font-semibold text-neutral-300">Glassmorphism Border</label>
-                  <div className="space-y-6 rounded-lg bg-neutral-900/50 p-4">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="glass-toggle" className="text-sm font-medium text-neutral-300">
-                        Enable
-                      </label>
-                      <button
-                        role="switch"
-                        aria-checked={imageSettings.glassmorphicBorder.enabled}
-                        onClick={() => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, enabled: !imageSettings.glassmorphicBorder.enabled })}
-                        id="glass-toggle"
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${imageSettings.glassmorphicBorder.enabled ? "bg-blue-600" : "bg-neutral-700"}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${imageSettings.glassmorphicBorder.enabled ? "translate-x-6" : "translate-x-1"}`} />
-                      </button>
+                <div className="pt-6 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedImage((v) => !v)}
+                    className="flex items-center justify-between w-full text-sm font-medium text-neutral-300 hover:text-white py-1.5"
+                    aria-expanded={showAdvancedImage}
+                  >
+                    <span>More options</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedImage ? "rotate-180" : ""}`} />
+                  </button>
+                  {showAdvancedImage && (
+                    <div className="space-y-6 mt-4">
+                      <label className="block text-sm font-semibold text-neutral-300">Glassmorphism Border</label>
+                      <div className="space-y-6 rounded-lg bg-neutral-900/50 p-4">
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="glass-toggle" className="text-sm font-medium text-neutral-300">
+                            Enable
+                          </label>
+                          <button
+                            role="switch"
+                            aria-checked={imageSettings.glassmorphicBorder.enabled}
+                            onClick={() => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, enabled: !imageSettings.glassmorphicBorder.enabled })}
+                            id="glass-toggle"
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${imageSettings.glassmorphicBorder.enabled ? "bg-blue-600" : "bg-neutral-700"}`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${imageSettings.glassmorphicBorder.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
+                        </div>
+                        <SliderControl
+                          label="Size"
+                          value={imageSettings.glassmorphicBorder.size}
+                          onChange={(v) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, size: v })}
+                          min={1}
+                          max={50}
+                          unit="px"
+                          disabled={!imageSettings.glassmorphicBorder.enabled}
+                        />
+                        <SliderControl
+                          label="Opacity"
+                          value={imageSettings.glassmorphicBorder.opacity}
+                          onChange={(v) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, opacity: v })}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          disabled={!imageSettings.glassmorphicBorder.enabled}
+                        />
+                        <div className={`flex items-center justify-between ${!imageSettings.glassmorphicBorder.enabled ? "opacity-50 pointer-events-none" : ""}`}>
+                          <label className="text-sm font-medium text-neutral-300">Color</label>
+                          <ColorPicker color={imageSettings.glassmorphicBorder.color} onChange={(c) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, color: c })} />
+                        </div>
+                      </div>
                     </div>
-                    <SliderControl
-                      label="Size"
-                      value={imageSettings.glassmorphicBorder.size}
-                      onChange={(v) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, size: v })}
-                      min={1}
-                      max={50}
-                      unit="px"
-                      disabled={!imageSettings.glassmorphicBorder.enabled}
-                    />
-                    <SliderControl
-                      label="Opacity"
-                      value={imageSettings.glassmorphicBorder.opacity}
-                      onChange={(v) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, opacity: v })}
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      disabled={!imageSettings.glassmorphicBorder.enabled}
-                    />
-                    <div className={`flex items-center justify-between ${!imageSettings.glassmorphicBorder.enabled ? "opacity-50 pointer-events-none" : ""}`}>
-                      <label className="text-sm font-medium text-neutral-300">Color</label>
-                      <ColorPicker color={imageSettings.glassmorphicBorder.color} onChange={(c) => handleImageSettingChange("glassmorphicBorder", { ...imageSettings.glassmorphicBorder, color: c })} />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -402,7 +509,7 @@ export const Controls: React.FC<ControlsProps> = (props) => {
         </AccordionItem>
 
         <AccordionItem value="background">
-          <AccordionTrigger>Background</AccordionTrigger>
+          <AccordionTrigger className="hidden">Background</AccordionTrigger>
           <AccordionContent className="p-1">
             <div className="bg-neutral-900/50 p-1 rounded-lg flex mb-4 border border-white/5">
               <button
@@ -496,42 +603,59 @@ export const Controls: React.FC<ControlsProps> = (props) => {
         </AccordionItem>
 
         <AccordionItem value="background-effects">
-          <AccordionTrigger>Effects</AccordionTrigger>
+          <AccordionTrigger className="hidden">Effects</AccordionTrigger>
           <AccordionContent className="p-1">
             <div className="space-y-6">
+              <SliderControl label="Canvas Corners" value={backgroundEffects.canvasCornerRadius ?? 16} onChange={(v) => handleBackgroundEffectChange("canvasCornerRadius", v)} min={0} max={80} unit="px" />
               <SliderControl label="Noise" value={backgroundEffects.noiseOpacity} onChange={(v) => handleBackgroundEffectChange("noiseOpacity", v)} min={0} max={1} step={0.01} />
               <SliderControl label="Vignette" value={backgroundEffects.vignetteOpacity} onChange={(v) => handleBackgroundEffectChange("vignetteOpacity", v)} min={0} max={1} step={0.01} />
               <SliderControl label="Blur" value={backgroundEffects.blur} onChange={(v) => handleBackgroundEffectChange("blur", v)} max={50} unit="px" />
-              <SliderControl label="Motion Blur" value={backgroundEffects.motionBlur} onChange={(v) => handleBackgroundEffectChange("motionBlur", v)} max={100} unit="px" />
-              <SliderControl label="Watercolor" value={backgroundEffects.watercolor} onChange={(v) => handleBackgroundEffectChange("watercolor", v)} max={100} />
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">Pattern</label>
-                <select
-                  value={backgroundEffects.pattern}
-                  onChange={(e) => handleBackgroundEffectChange("pattern", e.target.value as BackgroundEffects["pattern"])}
-                  className="w-full bg-neutral-800 text-white text-sm rounded-md p-2 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+              <div className="pt-2 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedEffects((v) => !v)}
+                  className="flex items-center justify-between w-full text-sm font-medium text-neutral-300 hover:text-white py-1.5"
+                  aria-expanded={showAdvancedEffects}
                 >
-                  <option value="none">None</option>
-                  <option value="dots">Dots</option>
-                  <option value="grid">Grid</option>
-                  <option value="lines">Lines</option>
-                  <option value="waves">Waves</option>
-                  <option value="zigzag">Zigzag</option>
-                  <option value="hexagons">Hexagons</option>
-                  <option value="diagonal-stripes">Diagonal Stripes</option>
-                  <option value="crosshatch">Crosshatch</option>
-                  <option value="plus">Plus</option>
-                </select>
+                  <span>More options</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedEffects ? "rotate-180" : ""}`} />
+                </button>
+                {showAdvancedEffects && (
+                  <div className="space-y-6 mt-4">
+                    <SliderControl label="Motion Blur" value={backgroundEffects.motionBlur} onChange={(v) => handleBackgroundEffectChange("motionBlur", v)} max={100} unit="px" />
+                    <SliderControl label="Watercolor" value={backgroundEffects.watercolor} onChange={(v) => handleBackgroundEffectChange("watercolor", v)} max={100} />
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">Pattern</label>
+                      <select
+                        value={backgroundEffects.pattern}
+                        onChange={(e) => handleBackgroundEffectChange("pattern", e.target.value as BackgroundEffects["pattern"])}
+                        className="w-full bg-neutral-800 text-white text-sm rounded-md p-2 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="none">None</option>
+                        <option value="dots">Dots</option>
+                        <option value="grid">Grid</option>
+                        <option value="lines">Lines</option>
+                        <option value="waves">Waves</option>
+                        <option value="zigzag">Zigzag</option>
+                        <option value="hexagons">Hexagons</option>
+                        <option value="diagonal-stripes">Diagonal Stripes</option>
+                        <option value="crosshatch">Crosshatch</option>
+                        <option value="plus">Plus</option>
+                      </select>
+                    </div>
+                    {backgroundEffects.pattern !== "none" && (
+                      <SliderControl label="Pattern Opacity" value={backgroundEffects.patternOpacity} onChange={(v) => handleBackgroundEffectChange("patternOpacity", v)} min={0} max={1} step={0.01} />
+                    )}
+                  </div>
+                )}
               </div>
-              {backgroundEffects.pattern !== "none" && (
-                <SliderControl label="Pattern Opacity" value={backgroundEffects.patternOpacity} onChange={(v) => handleBackgroundEffectChange("patternOpacity", v)} min={0} max={1} step={0.01} />
-              )}
             </div>
           </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value="devices">
-          <AccordionTrigger>Devices</AccordionTrigger>
+          <AccordionTrigger className="hidden">Devices</AccordionTrigger>
           <AccordionContent className="p-1">
             <div className="space-y-4">
               {/* Device grid */}
@@ -585,8 +709,8 @@ export const Controls: React.FC<ControlsProps> = (props) => {
         </AccordionItem>
       </Accordion>
 
-      <div className="p-4 border-t border-neutral-800 space-y-4 bg-neutral-900/50 backdrop-blur-sm fixed bottom-0 left-0 right-0 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:bg-transparent lg:border-none lg:p-0">
-        <div className="flex space-x-3 mb-3">
+      <div className="p-4 border-t border-neutral-800 space-y-3 bg-neutral-900/50 backdrop-blur-sm fixed bottom-0 left-0 right-0 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:bg-transparent lg:border-none lg:p-0">
+        <div className="flex space-x-2">
           <button
             onClick={onDevModeClick}
             className="flex-1 flex items-center justify-center space-x-2 p-2 bg-transparent hover:bg-neutral-800 text-neutral-400 hover:text-white rounded-lg transition-all duration-200 border border-neutral-800 hover:border-neutral-700 group text-sm font-medium"
@@ -594,10 +718,59 @@ export const Controls: React.FC<ControlsProps> = (props) => {
             <Code className="w-4 h-4 group-hover:scale-110 transition-transform" />
             <span>Dev Mode</span>
           </button>
-          {/* Placeholder for potential other secondary actions */}
         </div>
 
-        <div className="flex space-x-3">
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Format</span>
+          <div className="flex flex-1 bg-neutral-800 rounded-lg p-0.5">
+            {(["png", "jpeg", "webp"] as const).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => setExportFormat(fmt)}
+                className={`flex-1 py-1 text-xs font-semibold uppercase rounded-md transition-colors ${
+                  exportFormat === fmt ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {fmt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {(exportFormat === "jpeg" || exportFormat === "webp") && (
+          <div className="px-1">
+            <SliderControl
+              label="Quality"
+              value={exportQuality}
+              onChange={setExportQuality}
+              min={0.1}
+              max={1}
+              step={0.05}
+            />
+          </div>
+        )}
+
+        <div className="flex space-x-2">
+          <button
+            onClick={onCopyToClipboard}
+            disabled={copyStatus === "copying"}
+            title="Copy image to clipboard"
+            className={`h-full px-3 rounded-xl transition-colors border ${
+              copyStatus === "copied"
+                ? "bg-emerald-600/20 border-emerald-500/40 text-emerald-300"
+                : copyStatus === "error"
+                ? "bg-red-600/20 border-red-500/40 text-red-300"
+                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-neutral-700"
+            }`}
+          >
+            {copyStatus === "copying" ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : copyStatus === "copied" ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <Copy className="w-5 h-5" />
+            )}
+          </button>
           <button
             onClick={onDownloadSingle}
             disabled={isDownloading}
@@ -608,7 +781,7 @@ export const Controls: React.FC<ControlsProps> = (props) => {
             ) : (
               <>
                 <Download className="w-5 h-5" />
-                <span>Export PNG</span>
+                <span>Export {exportFormat.toUpperCase()}</span>
               </>
             )}
           </button>
