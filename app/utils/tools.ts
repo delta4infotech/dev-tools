@@ -52,5 +52,17 @@ export const tools = [
         description: "Convert JavaScript objects to valid JSON format instantly. Handles nested objects, arrays, and complex data structures with ease.",
         link: "/js-object-to-json",
         keywords: ["js object to json", "javascript to json", "object to json converter", "js to json online", "convert javascript to json", "javascript object converter", "json converter", "object literal to json", "js object converter"]
+    },
+    {
+        title: "JSON Viewer",
+        description: "View JSON as a collapsible tree, search keys and values, and copy the path to any field. Opens large files entirely in your browser.",
+        link: "/json-viewer",
+        keywords: ["json viewer", "online json viewer", "json file viewer", "json tree viewer", "large json viewer", "view json online", "json browser", "json explorer", "json search"]
+    },
+    {
+        title: "Object to JSON Converter",
+        description: "Convert between JSON, JavaScript objects, Python dicts, PHP arrays and Ruby hashes. Paste any of them, pick the output format.",
+        link: "/object-to-json",
+        keywords: ["object to json converter", "convert object to json", "json converter", "python dict to json", "json to python dict", "php array to json", "json to php array", "ruby hash to json", "javascript object to json", "dict to json", "array to json"]
     }
 ];

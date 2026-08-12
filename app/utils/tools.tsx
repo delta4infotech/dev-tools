@@ -1,4 +1,4 @@
-import { Palette, FileText, FileJson, GitCompare, Search, ShieldCheck, Binary, Link, Linkedin, FileCode } from "lucide-react";
+import { Palette, FileText, FileJson, GitCompare, Search, ShieldCheck, Binary, Link, Linkedin, FileCode, Replace, ListTree } from "lucide-react";
 
 export const tools = [
   {
@@ -94,5 +94,19 @@ export const tools = [
     link: "/js-object-to-json",
     keywords: ["js object to json", "javascript to json", "object to json converter", "js to json online", "convert javascript to json", "javascript object converter", "json converter", "object literal to json", "js object converter"],
     icon: <FileCode className="w-5 h-5" />,
+  },
+  {
+    title: "JSON Viewer",
+    description: "View JSON as a collapsible tree, search keys and values, and copy the path to any field. Opens large files entirely in your browser.",
+    link: "/json-viewer",
+    keywords: ["json viewer", "online json viewer", "json file viewer", "json tree viewer", "large json viewer", "view json online", "json browser", "json explorer", "json search"],
+    icon: <ListTree className="w-5 h-5" />,
+  },
+  {
+    title: "Object to JSON Converter",
+    description: "Convert between JSON, JavaScript objects, Python dicts, PHP arrays and Ruby hashes. Paste any of them, pick the output format.",
+    link: "/object-to-json",
+    keywords: ["object to json converter", "convert object to json", "json converter", "python dict to json", "json to python dict", "php array to json", "json to php array", "ruby hash to json", "javascript object to json", "dict to json", "array to json"],
+    icon: <Replace className="w-5 h-5" />,
   },
 ];

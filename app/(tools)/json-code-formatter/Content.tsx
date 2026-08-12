@@ -4,12 +4,13 @@ import CodeMirror from "@uiw/react-codemirror";
 import { json } from "@codemirror/lang-json";
 import { Button } from "@/components/ui/button";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { Copy, BrushCleaning, ArrowRightLeft } from "lucide-react";
+import { Copy, BrushCleaning, ArrowRightLeft, CircleAlert, Info } from "lucide-react";
 import FAQ, { FAQProps } from "../../(components)/FAQ";
 import Example, { ExampleProps } from "../../(components)/Example";
 import RelatedTools from "../../(components)/RelatedTools";
 import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 import ToolHeader from "../../(components)/ToolHeader";
+import { parseJsonLoose } from "@/lib/converter/parse";
 
 const faqs = [
     {
@@ -32,18 +33,36 @@ const faqs = [
     },
     {
         id: "4",
-        title: "What if my JSON is invalid?",
+        title: "Can it format JavaScript-style JSON with single quotes?",
         content:
-            "The formatter will display an error message if your JSON is invalid, helping you identify syntax errors like missing commas, brackets, or quotes. This makes it a useful tool for debugging JSON syntax.",
+            "Yes. If your input isn't strict JSON, the formatter falls back to a tolerant parser that accepts single-quoted strings, unquoted keys, trailing commas, // and /* */ comments, undefined, NaN, Infinity, and hex or underscore-separated numbers. The output is always valid, standards-compliant JSON, and a notice tells you when the input had to be converted.",
     },
     {
         id: "5",
+        title: "Does it work with Python dicts that use None, True and False?",
+        content:
+            "Yes. Paste a Python dict or a printed dict repr and it formats correctly: None becomes null, True and False become true and false, single-quoted and triple-quoted strings are read as strings, r/b/u/f string prefixes are handled, tuples and sets become arrays, empty set() and frozenset() become empty arrays, and # comments are ignored.",
+    },
+    {
+        id: "6",
+        title: "Can I paste a PHP array or a Ruby hash?",
+        content:
+            "Yes. Both PHP array syntaxes work - the short [\"key\" => \"value\"] form and the long array(\"key\" => \"value\") form, nested to any depth. Keyed PHP arrays become JSON objects and list-style arrays become JSON arrays, exactly the way PHP's own json_encode converts them. Ruby hashes using {\"key\" => value} and nil work the same way, as does SQL style NULL, TRUE and FALSE casing.",
+    },
+    {
+        id: "7",
+        title: "What if my JSON is invalid?",
+        content:
+            "The formatter will display an error message with the exact line and column if your input can't be parsed, helping you identify syntax errors like missing commas, brackets, or quotes. This makes it a useful tool for debugging JSON syntax.",
+    },
+    {
+        id: "8",
         title: "Can I customize the indentation?",
         content:
             "Currently, the formatter uses 2-space indentation by default. Future versions may include configurable options for indentation size and other formatting preferences.",
     },
     {
-        id: "6",
+        id: "9",
         title: "Does the formatter preserve my JSON structure?",
         content:
             "Yes, the formatter only modifies whitespace, indentation, and formatting without changing your JSON data structure or values. It's designed to be safe for production use.",
@@ -157,6 +176,7 @@ const Examples = ({ examples }: { examples: ExampleProps[] }) => {
 export default function Content() {
     const [inputJSON, setInputJSON] = useState('{ "name":"Alice","age": 30,"city":"New York","professions":["developer","musician"]}');
     const [formattedJSON, setFormattedJSON] = useState('');
+    const [status, setStatus] = useState<{ type: 'error' | 'notice'; message: string } | null>(null);
     const [editorHeight, setEditorHeight] = useState('500px');
     const [fontSize, setFontSize] = useState(14);
 
@@ -239,25 +259,35 @@ export default function Content() {
 
     const handleFormat = () => {
         try {
-            // Parse and stringify with proper indentation
-            const parsed = JSON.parse(inputJSON);
-            const formatted = JSON.stringify(parsed, null, 2);
-            setFormattedJSON(formatted);
+            // Strict JSON first, then a tolerant pass for JS, Python, PHP or
+            // Ruby style input (single quotes, None/True, "k" => v, comments...)
+            const { value, lenient } = parseJsonLoose(inputJSON);
+            setFormattedJSON(JSON.stringify(value, null, 2));
+            setStatus(
+                lenient
+                    ? {
+                        type: 'notice',
+                        message: 'JS/Python/PHP-style input converted to valid JSON',
+                    }
+                    : null
+            );
         } catch (error) {
-            setFormattedJSON(`Error: ${(error as Error).message}`);
+            setFormattedJSON('');
+            setStatus({ type: 'error', message: (error as Error).message });
         }
     };
 
     const handleClear = () => {
         setInputJSON('');
         setFormattedJSON('');
+        setStatus(null);
     };
 
     return (
         <>
             <ToolHeader
                 title="JSON Formatter"
-                description="Format, validate and beautify your JSON data instantly."
+                description="Format, validate and beautify your JSON data instantly. JavaScript objects, Python dicts, PHP arrays and Ruby hashes work too - single quotes, unquoted keys, None/True/False, => arrows, trailing commas and comments."
             />
             {/* Main Tool Content */}
             <div className="flex-1 bg-background w-full h-full">
@@ -319,10 +349,25 @@ export default function Content() {
 
                         <div className="flex flex-col">
                             <div className="border border-border/50 rounded-lg overflow-hidden shadow-sm" style={{ height: editorHeight }}>
-                                <div className="bg-[#282c34] p-2 flex justify-end gap-2">
+                                <div className="bg-[#282c34] p-2 flex items-center justify-between gap-2">
+                                    <div className="min-w-0 flex-1 flex items-center gap-1.5 text-xs pl-1">
+                                        {status && (
+                                            <>
+                                                {status.type === 'error'
+                                                    ? <CircleAlert className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                                                    : <Info className="w-3.5 h-3.5 shrink-0 text-amber-400" />}
+                                                <span
+                                                    className={`truncate ${status.type === 'error' ? 'text-red-400' : 'text-amber-400'}`}
+                                                    title={status.message}
+                                                >
+                                                    {status.type === 'error' ? `Invalid JSON: ${status.message}` : status.message}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
                                     <Button
                                         variant="outline"
-                                        onClick={() => setFormattedJSON('')}
+                                        onClick={() => { setFormattedJSON(''); setStatus(null); }}
                                         className="px-3 py-1.5 h-8 text-sm"
                                         size="sm"
                                     >
