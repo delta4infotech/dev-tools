@@ -106,7 +106,13 @@ function useIsToolPage() {
     'jwt-token-encoder-and-decoder',
     'readme-today',
     'uri-encode-decode',
-    'linkedin-text-formatter'
+    'linkedin-text-formatter',
+    'object-to-json',
+    'python-dict-to-json',
+    'json-to-python-dict',
+    'php-array-to-json',
+    'json-to-php-array',
+    'json-viewer'
   ];
 
   return toolPages.some(tool => pathname.includes(tool));

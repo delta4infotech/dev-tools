@@ -11,6 +11,7 @@ import Example, { ExampleProps } from "../../(components)/Example";
 import RelatedTools from "../../(components)/RelatedTools";
 import KeyboardShortcutHint from "../../(components)/KeyboardShortcutHint";
 import ToolHeader from "../../(components)/ToolHeader";
+import { parseJsonLoose } from "@/lib/converter/parse";
 
 const faqs: FAQProps[] = [
     {
@@ -216,21 +217,9 @@ export default function Content() {
 
     const handleConvert = () => {
         try {
-            // Wrap the input in parentheses and evaluate it as a JS expression
-            // This allows both {key: value} and const obj = {key: value} formats
-            let jsObject;
-
-            // Try to evaluate as a direct object literal first
-            try {
-                jsObject = eval(`(${inputJS})`);
-            } catch {
-                // If that fails, try evaluating as is (might be a statement)
-                jsObject = eval(inputJS);
-            }
-
-            // Convert to JSON with formatting
-            const jsonOutput = JSON.stringify(jsObject, null, 2);
-            setOutputJSON(jsonOutput);
+            // Parsed, never evaluated - pasted code cannot run in the browser.
+            const { value } = parseJsonLoose(inputJS);
+            setOutputJSON(JSON.stringify(value, null, 2));
         } catch (error) {
             setOutputJSON(`Error: ${(error as Error).message}\n\nPlease ensure your input is a valid JavaScript object.`);
         }
