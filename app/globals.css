@@ -33,6 +33,38 @@
   box-sizing: border-box;
 }
 
+/* Themed scrollbars — neutral-800 track, neutral-600 thumb that lightens on hover.
+   Applied globally so every scrollable region matches the dark UI. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(82 82 91) transparent; /* thumb track */
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(64 64 64);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(115 115 115);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ---break---*/
 
 @theme inline {

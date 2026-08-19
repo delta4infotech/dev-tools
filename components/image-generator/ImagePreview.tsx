@@ -1,6 +1,7 @@
 "use client";
 import React, { forwardRef, useRef, useEffect, useCallback, useState } from 'react';
-import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject, UploadedImage } from './types';
+import type { ImagePreviewProps, TextObject, BackgroundEffects, ArrowObject, CounterObject, RedactObject, ShapeObject, UploadedImage, BrushObject, BrushPoint } from './types';
+import { CropOverlay } from './CropOverlay';
 import { hexToRgba } from './utils/color';
 import { DEVICE_MOCKUPS } from './mockups';
 import { getAssetUrl, getProxyUrl } from './utils/url';
@@ -88,7 +89,8 @@ const DeviceMockupFrame: React.FC<{
     uploadedImages: UploadedImage[];
     fallbackImage: string;
     padding: number;
-}> = ({ mockupId, color, layout = 'single', uploadedImages, fallbackImage, padding }) => {
+    getImageUrl: (url: string | null) => string | null;
+}> = ({ mockupId, color, layout = 'single', uploadedImages, fallbackImage, padding, getImageUrl }) => {
     const device = DEVICE_MOCKUPS.find(d => d.id === mockupId);
     if (!device) return null;
 
@@ -96,19 +98,19 @@ const DeviceMockupFrame: React.FC<{
     const { x, y, width, height } = device.screen;
     
     const deviceCount = layout === 'grid-3' ? 3 : layout === 'grid-2' ? 2 : 1;
-    const displayImages: string[] = [];
+    const displayImages: { src: string; crop?: UploadedImage['crop'] }[] = [];
     
     // We want to fill `deviceCount` slots.
     // If the user hasn't uploaded enough images, repeat the first one over and over.
     for (let i = 0; i < deviceCount; i++) {
         if (uploadedImages.length > i) {
-            displayImages.push(uploadedImages[i].src);
+            displayImages.push({ src: getImageUrl(uploadedImages[i].src) || uploadedImages[i].src, crop: uploadedImages[i].crop });
         } else if (uploadedImages.length > 0) {
             // fallback to the first uploaded image
-            displayImages.push(uploadedImages[0].src);
+            displayImages.push({ src: getImageUrl(uploadedImages[0].src) || uploadedImages[0].src, crop: uploadedImages[0].crop });
         } else {
             // fallback to the single main editor image
-            displayImages.push(fallbackImage);
+            displayImages.push({ src: fallbackImage });
         }
     }
 
@@ -118,7 +120,11 @@ const DeviceMockupFrame: React.FC<{
             style={{ padding: `${padding}px` }}
         >
             <div className={`relative flex items-center justify-center gap-4 w-full h-full min-w-0 min-h-0`}>
-                {displayImages.map((src, index) => (
+                {displayImages.map((image, index) => {
+                    const crop = image.crop;
+                    const bgPosX = crop && crop.width < 100 ? (crop.x / (100 - crop.width)) * 100 : 0;
+                    const bgPosY = crop && crop.height < 100 ? (crop.y / (100 - crop.height)) * 100 : 0;
+                    return (
                     <div key={index} className="relative flex max-h-full max-w-full items-center justify-center h-full min-w-0 min-h-0 shrink">
                         <div className="relative h-full inline-flex justify-center" style={{ aspectRatio: String(device.aspectRatio) }}>
                             {/* Spacer image using frameUrl to naturally bound the size of this block */}
@@ -140,7 +146,19 @@ const DeviceMockupFrame: React.FC<{
                                         height: `${height}%`,
                                     }}
                                 >
-                                    <img src={src} className="w-full h-full object-cover" draggable={false} alt="Screen Content" />
+                                    {crop ? (
+                                        <div
+                                            className="w-full h-full"
+                                            style={{
+                                                backgroundImage: `url(${image.src})`,
+                                                backgroundSize: `${10000 / crop.width}% ${10000 / crop.height}%`,
+                                                backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+                                                backgroundRepeat: 'no-repeat',
+                                            }}
+                                        />
+                                    ) : (
+                                        <img src={image.src} className="w-full h-full object-cover" draggable={false} alt="Screen Content" />
+                                    )}
                                 </div>
 
                                 {/* Frame overlay - sits above the screen area for inner shadows/bezels */}
@@ -153,7 +171,8 @@ const DeviceMockupFrame: React.FC<{
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
@@ -172,12 +191,13 @@ const alignmentClasses = {
     'bottom-right': 'items-end justify-end',
 };
 
-const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' | 'aspectRatio' | 'onSetEditing' | 'onSelectObject' | 'onTextUpdate' | 'onTextDelete' | 'onTextUpdateWithHistory'> & { text: TextObject, isSelected: boolean, isEditing: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
-    ({ canvasKey, text, isSelected, isEditing, onSetEditing, onSelectObject, onTextUpdate, onTextUpdateWithHistory, textEffects, aspectRatio, previewRef }) => {
+const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' | 'aspectRatio' | 'onSetEditing' | 'onSelectObject' | 'onTextUpdate' | 'onTextDelete' | 'onTextUpdateWithHistory' | 'onBeginInteractionHistory'> & { text: TextObject, isSelected: boolean, isEditing: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
+    ({ canvasKey, text, isSelected, isEditing, onSetEditing, onSelectObject, onTextUpdate, onTextUpdateWithHistory, onBeginInteractionHistory, textEffects, aspectRatio, previewRef }) => {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         const elementRef = useRef<HTMLDivElement>(null);
         const dragInfo = useRef({ hasMoved: false });
         const lastClickTime = useRef(0);
+        const editHistoryStarted = useRef(false);
 
         const handlePointerDown = (e: React.PointerEvent) => {
             if (e.button !== 0) return;
@@ -197,6 +217,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
             const startTextX = text.xPosition;
             const startTextY = text.yPosition;
             const previewRect = preview.getBoundingClientRect();
+            onBeginInteractionHistory();
 
             const onPointerMove = (moveEvent: PointerEvent) => {
                 const dx = moveEvent.clientX - startX;
@@ -204,6 +225,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
 
                 if (!dragInfo.current.hasMoved && Math.sqrt(dx * dx + dy * dy) > 5) {
                     dragInfo.current.hasMoved = true;
+                    onBeginInteractionHistory();
                     target.setPointerCapture(e.pointerId);
                     document.body.style.cursor = 'grabbing';
                 }
@@ -226,7 +248,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
                     const dy = upEvent.clientY - startY;
                     const finalX = startTextX + (dx / previewRect.width) * 100;
                     const finalY = startTextY + (dy / previewRect.height) * 100;
-                    onTextUpdateWithHistory(text.id, { xPosition: finalX, yPosition: finalY });
+                    onTextUpdate(text.id, { xPosition: finalX, yPosition: finalY });
                 }
             };
 
@@ -269,7 +291,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
                 let finalWidthPercent = (newWidthPx / previewRect.width) * 100;
                 finalWidthPercent = finalWidthPercent / scale; // Compensate for scale
                 finalWidthPercent = Math.max(5, Math.min(500, finalWidthPercent));
-                onTextUpdateWithHistory(text.id, { width: finalWidthPercent });
+                onTextUpdate(text.id, { width: finalWidthPercent });
             };
 
             document.body.style.cursor = 'ew-resize';
@@ -288,6 +310,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
             const centerY = rect.top + rect.height / 2;
             const startDistance = Math.hypot(e.clientX - centerX, e.clientY - centerY);
             const startScale = text.fontSizeScale || 1;
+            onBeginInteractionHistory();
 
             const onPointerMove = (moveEvent: PointerEvent) => {
                 const currentDistance = Math.hypot(moveEvent.clientX - centerX, moveEvent.clientY - centerY);
@@ -307,7 +330,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
                 const scaleChange = currentDistance / startDistance;
                 let newScale = startScale * scaleChange;
                 newScale = Math.max(0.1, Math.min(10, newScale));
-                onTextUpdateWithHistory(text.id, { fontSizeScale: newScale });
+                onTextUpdate(text.id, { fontSizeScale: newScale });
             };
 
             document.addEventListener('pointermove', onPointerMove);
@@ -321,6 +344,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
                 textarea.select();
                 textarea.style.height = 'auto';
                 textarea.style.height = `${textarea.scrollHeight}px`;
+                editHistoryStarted.current = false;
             }
         }, [isEditing]);
 
@@ -331,17 +355,26 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
             }
         };
 
+        const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+            if (!editHistoryStarted.current) {
+                onBeginInteractionHistory();
+                editHistoryStarted.current = true;
+            }
+            onTextUpdate(text.id, { content: e.target.value });
+        };
+
         const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-            onTextUpdateWithHistory(text.id, { content: e.target.value });
+            onTextUpdate(text.id, { content: e.target.value });
             onSetEditing(canvasKey, null);
         };
 
-        const baseFontSize = aspectRatio === '1:1' ? '6vw' : '5vw';
-        const maxFontSize = aspectRatio === '1:1' ? 72 : 96;
+        const isPortrait = aspectRatio === '1:1' || aspectRatio === '9:16' || aspectRatio === '4:5';
+        const baseFontSize = isPortrait ? '6vw' : '5vw';
+        const maxFontSize = isPortrait ? 72 : 96;
 
         let fontSize = `clamp(1.5rem, ${baseFontSize}, ${maxFontSize}px)`;
-        if (text.content.length > 15) fontSize = `clamp(1.25rem, ${aspectRatio === '1:1' ? '4vw' : '3vw'}, ${maxFontSize}px)`;
-        if (text.content.length > 25) fontSize = `clamp(1rem, ${aspectRatio === '1:1' ? '3vw' : '2vw'}, ${maxFontSize}px)`;
+        if (text.content.length > 15) fontSize = `clamp(1.25rem, ${isPortrait ? '4vw' : '3vw'}, ${maxFontSize}px)`;
+        if (text.content.length > 25) fontSize = `clamp(1rem, ${isPortrait ? '3vw' : '2vw'}, ${maxFontSize}px)`;
 
         const glassmorphicStyle: React.CSSProperties = textEffects.isGlassmorphic ? {
             backgroundColor: hexToRgba(textEffects.glassColor, textEffects.glassOpacity),
@@ -423,7 +456,7 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
                     <textarea
                         ref={textareaRef}
                         value={text.content}
-                        onChange={(e) => onTextUpdate(text.id, { content: e.target.value })}
+                        onChange={handleTextareaChange}
                         onBlur={handleBlur}
                         onKeyDown={handleTextareaKeyDown}
                         className="w-full p-4 bg-transparent border-0 resize-none overflow-hidden text-center font-bold focus:outline-none ring-2 ring-white/50 rounded-lg"
@@ -438,8 +471,8 @@ const TextElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'textEffects' 
         );
     };
 
-const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onArrowUpdate' | 'onArrowUpdateWithHistory'> & { arrow: ArrowObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
-    ({ canvasKey, arrow, isSelected, onSelectObject, onArrowUpdate, onArrowUpdateWithHistory, previewRef }) => {
+const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onArrowUpdate' | 'onArrowUpdateWithHistory' | 'onBeginInteractionHistory'> & { arrow: ArrowObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
+    ({ canvasKey, arrow, isSelected, onSelectObject, onArrowUpdate, onArrowUpdateWithHistory, onBeginInteractionHistory, previewRef }) => {
         const lineRef = useRef<SVGLineElement>(null);
         const dragInfo = useRef({ hasMoved: false });
         // Fix: Use unique ID for each arrow's marker to prevent color conflicts
@@ -458,6 +491,7 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
             const startY = e.clientY;
             const startArrow = { ...arrow };
             const previewRect = preview.getBoundingClientRect();
+            onBeginInteractionHistory();
 
             const onPointerMove = (moveEvent: PointerEvent) => {
                 const dx = moveEvent.clientX - startX;
@@ -465,6 +499,7 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
 
                 if (!dragInfo.current.hasMoved && Math.sqrt(dx * dx + dy * dy) > 3) {
                     dragInfo.current.hasMoved = true;
+                    onBeginInteractionHistory();
                     document.body.style.cursor = 'grabbing';
                 }
 
@@ -485,9 +520,7 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 document.body.style.cursor = '';
-                if (dragInfo.current.hasMoved) {
-                    onArrowUpdateWithHistory(arrow.id, {}); // Trigger history push with current state
-                }
+
             };
 
             document.addEventListener('pointermove', onPointerMove);
@@ -528,7 +561,6 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
                 if (target.hasPointerCapture(upEvent.pointerId)) {
                     target.releasePointerCapture(upEvent.pointerId);
                 }
-                onArrowUpdateWithHistory(arrow.id, {});
             };
 
             document.addEventListener('pointermove', onPointerMove);
@@ -552,8 +584,15 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
                     x2={`${arrow.x2}%`} y2={`${arrow.y2}%`}
                     stroke={arrow.color}
                     strokeWidth={arrow.strokeWidth}
-                    markerEnd={`url(#${arrowheadId})`}
-                    strokeLinecap="round"
+                    markerEnd={(arrow.headStyle ?? 'filled') === 'none' ? undefined : `url(#${arrowheadId})`}
+                    strokeLinecap={arrow.lineStyle === 'dotted' ? 'round' : 'round'}
+                    strokeDasharray={
+                        arrow.lineStyle === 'dashed'
+                            ? `${arrow.strokeWidth * 2.5} ${arrow.strokeWidth * 1.5}`
+                            : arrow.lineStyle === 'dotted'
+                                ? `0.01 ${arrow.strokeWidth * 2}`
+                                : undefined
+                    }
                 />
                 {isSelected && (
                     <>
@@ -593,8 +632,33 @@ const ArrowElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
         );
     };
 
-const CounterElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onCounterUpdate' | 'onCounterUpdateWithHistory'> & { counter: CounterObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
-    ({ canvasKey, counter, isSelected, onSelectObject, onCounterUpdate, onCounterUpdateWithHistory, previewRef }) => {
+const formatCounterLabel = (n: number, format: CounterObject['format']): string => {
+    if (format === 'roman') {
+        const map: [number, string][] = [
+            [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+            [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+            [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+        ];
+        let num = n, out = '';
+        for (const [v, s] of map) {
+            while (num >= v) { out += s; num -= v; }
+        }
+        return out || String(n);
+    }
+    if (format === 'alpha') {
+        let num = n, out = '';
+        while (num > 0) {
+            const rem = (num - 1) % 26;
+            out = String.fromCharCode(65 + rem) + out;
+            num = Math.floor((num - 1) / 26);
+        }
+        return out || 'A';
+    }
+    return String(n);
+};
+
+const CounterElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onCounterUpdate' | 'onCounterUpdateWithHistory' | 'onBeginInteractionHistory'> & { counter: CounterObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
+    ({ canvasKey, counter, isSelected, onSelectObject, onCounterUpdate, onCounterUpdateWithHistory, onBeginInteractionHistory, previewRef }) => {
         const dragInfo = useRef({ hasMoved: false });
 
         const handlePointerDown = (e: React.PointerEvent) => {
@@ -618,6 +682,7 @@ const CounterElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectOb
 
                 if (!dragInfo.current.hasMoved && Math.hypot(dx, dy) > 3) {
                     dragInfo.current.hasMoved = true;
+                    onBeginInteractionHistory();
                     document.body.style.cursor = 'grabbing';
                 }
 
@@ -632,9 +697,7 @@ const CounterElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectOb
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 document.body.style.cursor = '';
-                if (dragInfo.current.hasMoved) {
-                    onCounterUpdateWithHistory(counter.id, {});
-                }
+
             };
 
             document.addEventListener('pointermove', onPointerMove);
@@ -658,13 +721,200 @@ const CounterElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectOb
                 onPointerDown={handlePointerDown}
                 onClick={(e) => e.stopPropagation()}
             >
-                {counter.count}
+                {formatCounterLabel(counter.count, counter.format)}
             </div>
         );
     };
 
-const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onRedactUpdate' | 'onRedactUpdateWithHistory'> & { redact: RedactObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
-    ({ canvasKey, redact, isSelected, onSelectObject, onRedactUpdate, onRedactUpdateWithHistory, previewRef }) => {
+const CroppedImage: React.FC<{
+    src: string;
+    crop: { x: number; y: number; width: number; height: number };
+    imageStyle: React.CSSProperties;
+    radius: string;
+}> = ({ src, crop, imageStyle, radius }) => {
+    const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+    const [parentSize, setParentSize] = useState<{ w: number; h: number } | null>(null);
+    const outerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const img = new window.Image();
+        img.onload = () => setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+        img.src = src;
+    }, [src]);
+
+    // Measure the available canvas area. Walk up past the inline-flex fit-content parent
+    // (which would collapse to our own size — circular dependency) to the alignment div.
+    // Subtract padding manually because clientWidth/clientHeight include padding in modern browsers.
+    useEffect(() => {
+        const el = outerRef.current;
+        if (!el) return;
+        const flexParent = el.parentElement;
+        const measureTarget = flexParent?.parentElement;
+        if (!measureTarget || !flexParent) return;
+        const update = () => {
+            const targetStyles = window.getComputedStyle(measureTarget);
+            const padL = parseFloat(targetStyles.paddingLeft) || 0;
+            const padR = parseFloat(targetStyles.paddingRight) || 0;
+            const padT = parseFloat(targetStyles.paddingTop) || 0;
+            const padB = parseFloat(targetStyles.paddingBottom) || 0;
+            // clientWidth/Height include padding; subtract it to get the true inner content area.
+            const w = measureTarget.clientWidth - padL - padR;
+            const h = measureTarget.clientHeight - padT - padB;
+            // Divide out the inline-flex parent's transform scale so the rendered image fits.
+            const flexStyles = window.getComputedStyle(flexParent);
+            const matrix = new DOMMatrixReadOnly(flexStyles.transform === 'none' ? '' : flexStyles.transform);
+            const scale = matrix.a || 1;
+            if (w > 0 && h > 0 && scale > 0) {
+                setParentSize({ w: w / scale, h: h / scale });
+            }
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(measureTarget);
+        ro.observe(flexParent);
+        return () => ro.disconnect();
+    }, []);
+
+    if (!naturalSize) {
+        return <div ref={outerRef} style={{ display: 'none' }} />;
+    }
+
+    const cropAspect = (naturalSize.w * crop.width) / (naturalSize.h * crop.height);
+
+    // Compute the largest size that fits inside parentSize while preserving aspect.
+    let fitW: number;
+    let fitH: number;
+    if (!parentSize) {
+        // Before measurement — use a reasonable initial size based on the crop's natural pixels
+        // so the inline-flex parent has something to size against. The ResizeObserver will
+        // correct this on the next frame.
+        const cropPxWidth = (naturalSize.w * crop.width) / 100;
+        const cropPxHeight = (naturalSize.h * crop.height) / 100;
+        fitW = cropPxWidth;
+        fitH = cropPxHeight;
+    } else {
+        const parentAspect = parentSize.w / parentSize.h;
+        if (cropAspect >= parentAspect) {
+            fitW = parentSize.w;
+            fitH = fitW / cropAspect;
+        } else {
+            fitH = parentSize.h;
+            fitW = fitH * cropAspect;
+        }
+    }
+
+    const { width: _w, height: _h, ...imageStyleRest } = imageStyle;
+    void _w; void _h;
+
+    // Safe background-position: when crop covers a full axis (width or height = 100),
+    // the denominator becomes 0. Default to 0% in that case.
+    const bgPosX = crop.width >= 100 ? 0 : (crop.x / (100 - crop.width)) * 100;
+    const bgPosY = crop.height >= 100 ? 0 : (crop.y / (100 - crop.height)) * 100;
+
+    return (
+        <div
+            ref={outerRef}
+            className="relative z-10"
+            style={{
+                ...imageStyleRest,
+                borderRadius: radius,
+                display: 'block',
+                width: `${fitW}px`,
+                height: `${fitH}px`,
+                backgroundImage: `url(${src})`,
+                backgroundSize: `${10000 / crop.width}% ${10000 / crop.height}%`,
+                backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+                backgroundRepeat: 'no-repeat',
+            }}
+        />
+    );
+};
+
+const pointsToPath = (points: BrushPoint[]): string => {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    return points.reduce((acc, p, i) => acc + (i === 0 ? `M ${p.x} ${p.y}` : ` L ${p.x} ${p.y}`), '');
+};
+
+const BrushLayer: React.FC<{
+    brushes: BrushObject[];
+    drawingBrush: Omit<BrushObject, 'id' | 'type'> | null;
+    canvasKey: number;
+    selection: ImagePreviewProps['selection'];
+    onSelectObject: ImagePreviewProps['onSelectObject'];
+}> = ({ brushes, drawingBrush, canvasKey, selection, onSelectObject }) => {
+    const blurBrushes = brushes.filter(b => b.mode === 'blur');
+    const inkBrushes = brushes.filter(b => b.mode !== 'blur');
+    const drawingIsBlur = drawingBrush?.mode === 'blur';
+    const drawingIsInk = drawingBrush && drawingBrush.mode !== 'blur';
+
+    return (
+        <>
+            {(blurBrushes.length > 0 || drawingIsBlur) && (
+                <div
+                    className="absolute inset-0 pointer-events-none z-20"
+                    style={{
+                        backdropFilter: 'blur(14px)',
+                        WebkitBackdropFilter: 'blur(14px)',
+                        WebkitMaskImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                            `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'>${
+                                [...blurBrushes, ...(drawingIsBlur ? [drawingBrush!] : [])]
+                                    .map((b) => `<path d='${pointsToPath(b.points)}' stroke='black' stroke-width='${b.size / 5}' fill='none' stroke-linecap='round' stroke-linejoin='round' vector-effect='non-scaling-stroke' />`)
+                                    .join('')
+                            }</svg>`
+                        )}")`,
+                        maskImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                            `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'>${
+                                [...blurBrushes, ...(drawingIsBlur ? [drawingBrush!] : [])]
+                                    .map((b) => `<path d='${pointsToPath(b.points)}' stroke='black' stroke-width='${b.size / 5}' fill='none' stroke-linecap='round' stroke-linejoin='round' vector-effect='non-scaling-stroke' />`)
+                                    .join('')
+                            }</svg>`
+                        )}")`,
+                        WebkitMaskSize: '100% 100%',
+                        maskSize: '100% 100%',
+                    }}
+                />
+            )}
+            {(inkBrushes.length > 0 || drawingIsInk) && (
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    {inkBrushes.map((b) => {
+                        const isSelected = selection?.canvasKey === canvasKey && selection.itemId === b.id && selection.type === 'brush';
+                        return (
+                            <path
+                                key={b.id}
+                                d={pointsToPath(b.points)}
+                                stroke={b.color}
+                                strokeWidth={b.size / 5}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                opacity={b.mode === 'highlighter' ? 0.4 : 1}
+                                vectorEffect="non-scaling-stroke"
+                                style={{ pointerEvents: 'stroke', cursor: 'pointer', filter: isSelected ? 'drop-shadow(0 0 2px #3b82f6)' : undefined }}
+                                onPointerDown={(e) => { e.stopPropagation(); onSelectObject(canvasKey, b.id, 'brush'); }}
+                            />
+                        );
+                    })}
+                    {drawingIsInk && (
+                        <path
+                            d={pointsToPath(drawingBrush!.points)}
+                            stroke={drawingBrush!.color}
+                            strokeWidth={drawingBrush!.size / 5}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity={drawingBrush!.mode === 'highlighter' ? 0.4 : 1}
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    )}
+                </svg>
+            )}
+        </>
+    );
+};
+
+const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onRedactUpdate' | 'onRedactUpdateWithHistory' | 'onBeginInteractionHistory'> & { redact: RedactObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
+    ({ canvasKey, redact, isSelected, onSelectObject, onRedactUpdate, onRedactUpdateWithHistory, onBeginInteractionHistory, previewRef }) => {
         const elementRef = useRef<HTMLDivElement>(null);
         const dragInfo = useRef({ hasMoved: false });
 
@@ -689,6 +939,7 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
 
                 if (!dragInfo.current.hasMoved && Math.hypot(dx, dy) > 3) {
                     dragInfo.current.hasMoved = true;
+                    onBeginInteractionHistory();
                     document.body.style.cursor = 'grabbing';
                 }
 
@@ -703,9 +954,7 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 document.body.style.cursor = '';
-                if (dragInfo.current.hasMoved) {
-                    onRedactUpdateWithHistory(redact.id, {});
-                }
+
             };
 
             document.addEventListener('pointermove', onPointerMove);
@@ -724,6 +973,7 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
             const startW = redact.width;
             const startH = redact.height;
             const previewRect = preview.getBoundingClientRect();
+            onBeginInteractionHistory();
 
             const onPointerMove = (moveEvent: PointerEvent) => {
                 const dx = moveEvent.clientX - startX;
@@ -742,12 +992,21 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 if (element.hasPointerCapture(upEvent.pointerId)) element.releasePointerCapture(upEvent.pointerId);
-                onRedactUpdateWithHistory(redact.id, {});
             };
 
             document.addEventListener('pointermove', onPointerMove);
             document.addEventListener('pointerup', onPointerUp);
         }
+
+        const backdropFilter = (() => {
+            if (redact.mode === 'blur') return 'blur(16px)';
+            if (redact.mode === 'pixelate') return 'blur(4px) contrast(1.4) saturate(1.2)';
+            return 'none';
+        })();
+        const backgroundImage = redact.mode === 'pixelate'
+            ? 'linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px)'
+            : undefined;
+        const backgroundColor = redact.mode === 'solid' ? 'black' : 'transparent';
 
         return (
             <div
@@ -758,8 +1017,11 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
                     top: `${redact.y}%`,
                     width: `${redact.width}%`,
                     height: `${redact.height}%`,
-                    backdropFilter: redact.mode === 'blur' ? 'blur(16px)' : 'none',
-                    backgroundColor: redact.mode === 'pixelate' ? 'black' : (redact.mode === 'blur' ? 'transparent' : 'black'), // Fallback for simple redact
+                    backdropFilter,
+                    WebkitBackdropFilter: backdropFilter,
+                    backgroundColor,
+                    backgroundImage,
+                    backgroundSize: redact.mode === 'pixelate' ? '8px 8px' : undefined,
                     boxShadow: isSelected ? '0 0 0 2px #3b82f6' : 'none',
                 }}
                 onPointerDown={handlePointerDown}
@@ -775,8 +1037,8 @@ const RedactElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObj
         );
     };
 
-const ShapeElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onShapeUpdate' | 'onShapeUpdateWithHistory'> & { shape: ShapeObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
-    ({ canvasKey, shape, isSelected, onSelectObject, onShapeUpdate, onShapeUpdateWithHistory, previewRef }) => {
+const ShapeElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObject' | 'onShapeUpdate' | 'onShapeUpdateWithHistory' | 'onBeginInteractionHistory'> & { shape: ShapeObject, isSelected: boolean, previewRef: React.RefObject<HTMLDivElement | null> }> =
+    ({ canvasKey, shape, isSelected, onSelectObject, onShapeUpdate, onShapeUpdateWithHistory, onBeginInteractionHistory, previewRef }) => {
         const dragInfo = useRef({ hasMoved: false });
 
         const handlePointerDown = (e: React.PointerEvent) => {
@@ -800,6 +1062,7 @@ const ShapeElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
 
                 if (!dragInfo.current.hasMoved && Math.hypot(dx, dy) > 3) {
                     dragInfo.current.hasMoved = true;
+                    onBeginInteractionHistory();
                     document.body.style.cursor = 'grabbing';
                 }
 
@@ -814,9 +1077,7 @@ const ShapeElement: React.FC<Pick<ImagePreviewProps, 'canvasKey' | 'onSelectObje
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
                 document.body.style.cursor = '';
-                if (dragInfo.current.hasMoved) {
-                    onShapeUpdateWithHistory(shape.id, {});
-                }
+
             };
             document.addEventListener('pointermove', onPointerMove);
             document.addEventListener('pointerup', onPointerUp);
@@ -863,12 +1124,14 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             backgroundEffects, textEffects, onUpdateImage,
             imageSettings,
             drawingMode,
-            texts, arrows, counters, redactions, shapes,
+            texts, arrows, arrowDefaults, counters, redactions, shapes, brushes, brushDefaults,
             onTextUpdate, onTextUpdateWithHistory, onTextDelete,
             onArrowAdd, onArrowUpdate, onArrowUpdateWithHistory,
             onCounterAdd, onCounterUpdate, onCounterUpdateWithHistory, onCounterDelete,
             onRedactAdd, onRedactUpdate, onRedactUpdateWithHistory, onRedactDelete,
             onShapeAdd, onShapeUpdate, onShapeUpdateWithHistory, onShapeDelete,
+            onBrushAdd, onBrushDelete, onBeginInteractionHistory,
+            cropImageId, onCropApply, onCropCancel,
             selection, onSelectObject, editing, onSetEditing, onActivate, isActive,
             setDrawingMode, onImageSettingsChange,
             uploadedImageObj, uploadedImage, uploadedImages
@@ -876,8 +1139,10 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
         const localPreviewRef = useRef<HTMLDivElement>(null);
         const [drawingArrow, setDrawingArrow] = useState<Omit<ArrowObject, 'id' | 'type'> | null>(null);
+        const [drawingBrush, setDrawingBrush] = useState<Omit<BrushObject, 'id' | 'type'> | null>(null);
 
         const drawingArrowRef = useRef<Omit<ArrowObject, 'id' | 'type'> | null>(null);
+        const drawingBrushRef = useRef<Omit<BrushObject, 'id' | 'type'> | null>(null);
 
         const setRefs = useCallback((node: HTMLDivElement | null) => {
             localPreviewRef.current = node;
@@ -886,15 +1151,64 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         }, [fwdRef]);
 
         const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-            if (drawingMode !== 'arrow' || !localPreviewRef.current) return;
+            if (!localPreviewRef.current) return;
+
+            if (drawingMode === 'brush') {
+                onSelectObject(canvasKey, null, 'text');
+                const previewRect = localPreviewRef.current.getBoundingClientRect();
+                const x = ((e.clientX - previewRect.left) / previewRect.width) * 100;
+                const y = ((e.clientY - previewRect.top) / previewRect.height) * 100;
+
+                const newBrush: Omit<BrushObject, 'id' | 'type'> = {
+                    mode: brushDefaults.mode,
+                    color: brushDefaults.color,
+                    size: brushDefaults.size,
+                    points: [{ x, y }],
+                };
+                drawingBrushRef.current = newBrush;
+                setDrawingBrush(newBrush);
+
+                const onMove = (moveEvent: PointerEvent) => {
+                    if (!drawingBrushRef.current) return;
+                    const cx = ((moveEvent.clientX - previewRect.left) / previewRect.width) * 100;
+                    const cy = ((moveEvent.clientY - previewRect.top) / previewRect.height) * 100;
+                    const last = drawingBrushRef.current.points[drawingBrushRef.current.points.length - 1];
+                    // Throttle: only add if moved >0.3% to keep paths smooth but small
+                    if (Math.hypot(cx - last.x, cy - last.y) < 0.3) return;
+                    drawingBrushRef.current = {
+                        ...drawingBrushRef.current,
+                        points: [...drawingBrushRef.current.points, { x: cx, y: cy }],
+                    };
+                    setDrawingBrush({ ...drawingBrushRef.current });
+                };
+                const onUp = () => {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    if (drawingBrushRef.current && drawingBrushRef.current.points.length > 1) {
+                        onBrushAdd(drawingBrushRef.current);
+                    }
+                    drawingBrushRef.current = null;
+                    setDrawingBrush(null);
+                };
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+                return;
+            }
+
+            if (drawingMode !== 'arrow') return;
             onSelectObject(canvasKey, null, 'text'); // Deselect all
 
             const previewRect = localPreviewRef.current.getBoundingClientRect();
             const x = ((e.clientX - previewRect.left) / previewRect.width) * 100;
             const y = ((e.clientY - previewRect.top) / previewRect.height) * 100;
 
-            // Default drawing color red, more visible than white
-            const newArrow = { x1: x, y1: y, x2: x, y2: y, color: '#ef4444', strokeWidth: 4 };
+            const newArrow: Omit<ArrowObject, 'id' | 'type'> = {
+                x1: x, y1: y, x2: x, y2: y,
+                color: arrowDefaults.color,
+                strokeWidth: arrowDefaults.strokeWidth,
+                lineStyle: arrowDefaults.lineStyle,
+                headStyle: arrowDefaults.headStyle,
+            };
             drawingArrowRef.current = newArrow;
             setDrawingArrow(newArrow);
 
@@ -928,10 +1242,31 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
             document.addEventListener('pointerup', onPointerUp);
         };
 
-        const aspectClass = aspectRatio === '1:1' ? 'aspect-square' : 'aspect-video';
+        const aspectClass = (() => {
+            switch (aspectRatio) {
+                case '1:1': return 'aspect-square';
+                case '16:9': return 'aspect-video';
+                case '9:16': return '';
+                case '4:5': return '';
+                case '4:3': return '';
+                case '3:2': return '';
+                case '1.91:1': return '';
+                default: return 'aspect-video';
+            }
+        })();
+        const aspectStyle: React.CSSProperties = (() => {
+            switch (aspectRatio) {
+                case '9:16': return { aspectRatio: '9 / 16' };
+                case '4:5': return { aspectRatio: '4 / 5' };
+                case '4:3': return { aspectRatio: '4 / 3' };
+                case '3:2': return { aspectRatio: '3 / 2' };
+                case '1.91:1': return { aspectRatio: '1.91 / 1' };
+                default: return {};
+            }
+        })();
         const alignmentClass = alignmentClasses[imageSettings.alignment];
         const imageStyle: React.CSSProperties = {
-            // transform: `scale(${imageSettings.scale})`, // Moved to wrapper div
+            // transform: `scale(${foregroundScale})`, // Moved to wrapper div
             boxShadow: `0 25px 50px -12px rgba(0, 0, 0, ${imageSettings.shadow / 100 * 0.5})`,
             borderRadius: (() => {
                 const r = imageSettings.corners;
@@ -964,6 +1299,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         };
 
         const imageContainerStyle = getImageContainerStyle();
+        const foregroundScale = uploadedImageObj?.scale ?? imageSettings.scale;
 
         const activeClass = isActive ? 'ring-4 ring-offset-4 ring-offset-neutral-950 ring-blue-500' : 'ring-0';
 
@@ -980,6 +1316,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
             const container = localPreviewRef.current;
             if (!container || !uploadedImageObj) return; // Ensure container and uploadedImageObj are available
+            onBeginInteractionHistory();
 
             const containerRect = container.getBoundingClientRect();
             const startX = e.clientX;
@@ -996,7 +1333,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
                 // Calculate current width in % of container, compensating for the scale transform
                 // rect.width includes the scale, so we divide by scale to get the "unscaled" base size
-                const currentWidth = ((rect.width / imageSettings.scale) / containerRect.width) * 100;
+                const currentWidth = ((rect.width / foregroundScale) / containerRect.width) * 100;
                 // const currentHeight = ((rect.height / imageSettings.scale) / containerRect.height) * 100; // Removed to fix stretching
 
                 // Initial set to lock position AND dimensions to prevent auto-scaling "jump"
@@ -1077,8 +1414,21 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
         const proxiedBackgroundImage = getProxiedUrl(backgroundImage);
         const proxiedUploadedImage = getProxiedUrl(uploadedImage);
 
+        // Match the ring's corner radius to the canvas radius. The ring sits OUTSIDE the canvas
+        // (via ring-offset-4), so its radius should equal canvas radius + offset (~8px) to look
+        // visually concentric. Cap below at 0 to keep sharp corners working.
+        const canvasRadius = backgroundEffects.canvasCornerRadius ?? 16;
+        const ringRadius = isActive ? Math.max(0, canvasRadius + 8) : canvasRadius;
+
         return (
-            <div className={`w-full max-w-4xl mx-auto rounded-3xl transition-all duration-300 ${activeClass}`} ref={previewContainerRef as React.RefObject<HTMLDivElement>}>
+            <div
+                className={`w-full max-w-4xl mx-auto ${activeClass}`}
+                style={{
+                    borderRadius: `${ringRadius}px`,
+                    transition: 'box-shadow 200ms ease, --tw-ring-offset-width 200ms ease',
+                }}
+                ref={previewContainerRef as React.RefObject<HTMLDivElement>}
+            >
                 <svg width="0" height="0" className="absolute">
                     <defs>
                         <filter id={motionBlurId} x="-50%" y="-50%" width="200%" height="200%">
@@ -1099,8 +1449,12 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
                 <div
                     ref={setRefs}
-                    className={`${aspectClass} w-full rounded-2xl overflow-hidden relative transition-all duration-300 ease-in-out shadow-2xl shadow-black/50 select-none bg-black`}
-                    style={{ cursor: (drawingMode === 'arrow' || drawingMode === 'counter') ? 'crosshair' : 'default' }}
+                    className={`${aspectClass} w-full overflow-hidden relative shadow-2xl shadow-black/50 select-none bg-black`}
+                    style={{
+                        ...aspectStyle,
+                        borderRadius: `${backgroundEffects.canvasCornerRadius ?? 16}px`,
+                        cursor: (drawingMode === 'arrow' || drawingMode === 'counter') ? 'crosshair' : drawingMode === 'brush' ? 'crosshair' : 'default',
+                    }}
                     onClick={(e) => {
                         if (drawingMode === 'counter') {
                             const rect = e.currentTarget.getBoundingClientRect();
@@ -1143,6 +1497,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                     uploadedImages={uploadedImages}
                                     fallbackImage={proxiedUploadedImage}
                                     padding={imageSettings.padding}
+                                    getImageUrl={getProxiedUrl}
                                 />
                              );
                         }
@@ -1156,8 +1511,9 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                 <div
                                     className={`relative inline-flex pointer-events-auto group ${drawingMode === 'move' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                                     onPointerDown={handleImageDragStart}
+                                    data-uploaded-image-id={uploadedImageObj?.id}
                                     style={{
-                                        transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${imageSettings.scale})`,
+                                        transform: `translate3d(${isManualPosition ? '-50%' : '0'}, ${isManualPosition ? '-50%' : '0'}, 0) scale(${foregroundScale})`,
                                         transformOrigin: isManualPosition ? 'center' : imageSettings.alignment.replace('middle', 'center').replace('-', ' '),
                                         willChange: drawingMode === 'move' ? 'transform' : 'auto',
                                         backfaceVisibility: 'hidden',
@@ -1165,9 +1521,8 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                         position: isManualPosition ? 'absolute' : 'relative',
                                         left: isManualPosition ? `${uploadedImageObj?.x}%` : undefined,
                                         top: isManualPosition ? `${uploadedImageObj?.y}%` : undefined,
-                                        // Use stored width/height if available, fallback to fit-content (auto wrapping)
-                                        width: isManualPosition && uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
-                                        height: isManualPosition && uploadedImageObj?.width ? 'auto' : 'fit-content', // Depend on width to maintain aspect ratio
+                                        width: uploadedImageObj?.width ? `${uploadedImageObj.width}%` : 'fit-content',
+                                        height: uploadedImageObj?.width ? 'auto' : 'fit-content',
                                         maxWidth: '100%',
                                         maxHeight: '100%',
                                     }}
@@ -1193,6 +1548,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
                                                         const container = localPreviewRef.current;
                                                         if (!container || !uploadedImageObj) return;
+                                                        onBeginInteractionHistory();
 
                                                         const containerRect = container.getBoundingClientRect();
                                                         const imageWrapper = target.parentElement as HTMLElement;
@@ -1261,7 +1617,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                                 right: `-${imageSettings.glassmorphicBorder.size}px`,
                                                 bottom: `-${imageSettings.glassmorphicBorder.size}px`,
                                                 backgroundColor: hexToRgba(imageSettings.glassmorphicBorder.color, 0.2),
-                                                border: `${Math.max(1, 1 / imageSettings.scale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
+                                                border: `${Math.max(1, 1 / foregroundScale)}px solid ${hexToRgba(imageSettings.glassmorphicBorder.color, 0.3)}`,
                                                 borderRadius: (() => {
                                                     const r = imageSettings.corners + imageSettings.glassmorphicBorder.size;
                                                     const a = imageSettings.alignment;
@@ -1278,9 +1634,8 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                             }}
                                         />
                                     )}
-                                    <img src={proxiedUploadedImage || ""} style={{
-                                        ...imageStyle,
-                                        borderRadius: (() => {
+                                    {(() => {
+                                        const radius = (() => {
                                             if (imageSettings.mockup) return '0px';
                                             const r = imageSettings.corners;
                                             const a = imageSettings.alignment;
@@ -1292,8 +1647,43 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                                 if (a.includes('right')) { tr = 0; br = 0; }
                                             }
                                             return `${tl}px ${tr}px ${br}px ${bl}px`;
-                                        })(),
-                                    }} alt="Uploaded content" className="relative block w-auto h-auto z-10 max-w-full max-h-full" />
+                                        })();
+                                        const crop = uploadedImageObj?.crop;
+                                        if (crop) {
+                                            // Use a single <img> rendered at the source's natural size scaled down
+                                            // via transform, but use object-* properties to make the box represent only
+                                            // the crop region. Simplest reliable approach: render the source image at the
+                                            // size of (crop.width%, crop.height%) of the original natural dimensions via
+                                            // a wrapper sized with width:auto + aspect-ratio + an inline-block sizer.
+                                            //
+                                            // Implementation: track the natural image dimensions via a stateful image and
+                                            // render the wrapper at the exact pixel dimensions of the crop.
+                                            return (
+                                                <CroppedImage
+                                                    src={proxiedUploadedImage || ""}
+                                                    crop={crop}
+                                                    imageStyle={uploadedImageObj?.width ? { ...imageStyle, width: '100%', height: '100%' } : imageStyle}
+                                                    radius={radius}
+                                                />
+                                            );
+                                        }
+                                        return (
+                                            <img
+                                                src={proxiedUploadedImage || ""}
+                                                draggable={false}
+                                                style={{ ...imageStyle, borderRadius: radius, width: uploadedImageObj?.width ? '100%' : imageStyle.width, height: uploadedImageObj?.width ? '100%' : imageStyle.height, objectFit: uploadedImageObj?.width ? 'contain' : undefined }}
+                                                alt="Uploaded content"
+                                                className="relative block w-auto h-auto z-10 max-w-full max-h-full"
+                                            />
+                                        );
+                                    })()}
+                                    {uploadedImageObj && cropImageId === uploadedImageObj.id && (
+                                        <CropOverlay
+                                            image={uploadedImageObj}
+                                            onApply={onCropApply}
+                                            onClose={onCropCancel}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         );
@@ -1322,14 +1712,26 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-30 overflow-visible">
                         <defs>
-                            {arrows.map(arrow => (
-                                <marker key={arrow.id} id={`arrowhead-${canvasKey}-${arrow.id}`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-                                    <path d="M0,0 L0,6 L6,3 z" fill={arrow.color} />
-                                </marker>
-                            ))}
-                            {drawingArrow && (
+                            {arrows.map(arrow => {
+                                const head = arrow.headStyle ?? 'filled';
+                                if (head === 'none') return null;
+                                return (
+                                    <marker key={arrow.id} id={`arrowhead-${canvasKey}-${arrow.id}`} markerWidth="6" markerHeight="6" refX={head === 'hollow' ? 5 : 5} refY="3" orient="auto" markerUnits="strokeWidth">
+                                        {head === 'hollow' ? (
+                                            <path d="M0.5,0.5 L5.5,3 L0.5,5.5 Z" fill="none" stroke={arrow.color} strokeWidth="1" strokeLinejoin="round" />
+                                        ) : (
+                                            <path d="M0,0 L0,6 L6,3 z" fill={arrow.color} />
+                                        )}
+                                    </marker>
+                                );
+                            })}
+                            {drawingArrow && (drawingArrow.headStyle ?? 'filled') !== 'none' && (
                                 <marker id={`arrowhead-${canvasKey}-drawing`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-                                    <path d="M0,0 L0,6 L6,3 z" fill={drawingArrow.color} />
+                                    {(drawingArrow.headStyle ?? 'filled') === 'hollow' ? (
+                                        <path d="M0.5,0.5 L5.5,3 L0.5,5.5 Z" fill="none" stroke={drawingArrow.color} strokeWidth="1" strokeLinejoin="round" />
+                                    ) : (
+                                        <path d="M0,0 L0,6 L6,3 z" fill={drawingArrow.color} />
+                                    )}
                                 </marker>
                             )}
                         </defs>
@@ -1342,6 +1744,7 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                 onSelectObject={onSelectObject}
                                 onArrowUpdate={onArrowUpdate}
                                 onArrowUpdateWithHistory={onArrowUpdateWithHistory}
+                                onBeginInteractionHistory={onBeginInteractionHistory}
                                 previewRef={localPreviewRef}
                             />
                         ))}
@@ -1351,8 +1754,15 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
                                 x2={`${drawingArrow.x2}%`} y2={`${drawingArrow.y2}%`}
                                 stroke={drawingArrow.color}
                                 strokeWidth={drawingArrow.strokeWidth}
-                                markerEnd={`url(#arrowhead-${canvasKey}-drawing)`}
+                                markerEnd={(drawingArrow.headStyle ?? 'filled') === 'none' ? undefined : `url(#arrowhead-${canvasKey}-drawing)`}
                                 strokeLinecap="round"
+                                strokeDasharray={
+                                    drawingArrow.lineStyle === 'dashed'
+                                        ? `${drawingArrow.strokeWidth * 2.5} ${drawingArrow.strokeWidth * 1.5}`
+                                        : drawingArrow.lineStyle === 'dotted'
+                                            ? `0.01 ${drawingArrow.strokeWidth * 2}`
+                                            : undefined
+                                }
                                 style={{ filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.3))' }}
                             />
                         )}
@@ -1360,22 +1770,23 @@ export const ImagePreview = forwardRef<HTMLDivElement, ImagePreviewProps>(
 
                     {
                         redactions && redactions.map(redact => (
-                            <RedactElement key={redact.id} canvasKey={canvasKey} redact={redact} isSelected={selection?.itemId === redact.id} onSelectObject={onSelectObject} onRedactUpdate={onRedactUpdate} onRedactUpdateWithHistory={onRedactUpdateWithHistory} previewRef={localPreviewRef} />
+                            <RedactElement key={redact.id} canvasKey={canvasKey} redact={redact} isSelected={selection?.itemId === redact.id} onSelectObject={onSelectObject} onRedactUpdate={onRedactUpdate} onRedactUpdateWithHistory={onRedactUpdateWithHistory} onBeginInteractionHistory={onBeginInteractionHistory} previewRef={localPreviewRef} />
                         ))
                     }
+                    <BrushLayer brushes={brushes || []} drawingBrush={drawingBrush} canvasKey={canvasKey} selection={selection} onSelectObject={onSelectObject} />
                     {
                         shapes && shapes.map(shape => (
-                            <ShapeElement key={shape.id} canvasKey={canvasKey} shape={shape} isSelected={selection?.itemId === shape.id} onSelectObject={onSelectObject} onShapeUpdate={onShapeUpdate} onShapeUpdateWithHistory={onShapeUpdateWithHistory} previewRef={localPreviewRef} />
+                            <ShapeElement key={shape.id} canvasKey={canvasKey} shape={shape} isSelected={selection?.itemId === shape.id} onSelectObject={onSelectObject} onShapeUpdate={onShapeUpdate} onShapeUpdateWithHistory={onShapeUpdateWithHistory} onBeginInteractionHistory={onBeginInteractionHistory} previewRef={localPreviewRef} />
                         ))
                     }
                     {
                         texts.map(text => (
-                            <TextElement key={text.id} canvasKey={canvasKey} text={text} isSelected={selection?.canvasKey === canvasKey && selection.itemId === text.id && selection.type === 'text'} isEditing={editing?.canvasKey === canvasKey && editing.itemId === text.id} onSetEditing={onSetEditing} onSelectObject={onSelectObject} onTextUpdate={onTextUpdate} onTextUpdateWithHistory={onTextUpdateWithHistory} onTextDelete={onTextDelete} textEffects={textEffects} aspectRatio={aspectRatio} previewRef={localPreviewRef} />
+                            <TextElement key={text.id} canvasKey={canvasKey} text={text} isSelected={selection?.canvasKey === canvasKey && selection.itemId === text.id && selection.type === 'text'} isEditing={editing?.canvasKey === canvasKey && editing.itemId === text.id} onSetEditing={onSetEditing} onSelectObject={onSelectObject} onTextUpdate={onTextUpdate} onTextUpdateWithHistory={onTextUpdateWithHistory} onBeginInteractionHistory={onBeginInteractionHistory} onTextDelete={onTextDelete} textEffects={textEffects} aspectRatio={aspectRatio} previewRef={localPreviewRef} />
                         ))
                     }
                     {
                         counters && counters.map(counter => (
-                            <CounterElement key={counter.id} canvasKey={canvasKey} counter={counter} isSelected={selection?.itemId === counter.id} onSelectObject={onSelectObject} onCounterUpdate={onCounterUpdate} onCounterUpdateWithHistory={onCounterUpdateWithHistory} previewRef={localPreviewRef} />
+                            <CounterElement key={counter.id} canvasKey={canvasKey} counter={counter} isSelected={selection?.itemId === counter.id} onSelectObject={onSelectObject} onCounterUpdate={onCounterUpdate} onCounterUpdateWithHistory={onCounterUpdateWithHistory} onBeginInteractionHistory={onBeginInteractionHistory} previewRef={localPreviewRef} />
                         ))
                     }
                 </div >

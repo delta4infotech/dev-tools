@@ -1,6 +1,24 @@
 import React from 'react';
 
-export type AspectRatio = '1:1' | '16:9';
+export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:5' | '4:3' | '3:2' | '1.91:1';
+
+export interface AspectRatioPreset {
+    id: AspectRatio;
+    label: string;
+    description: string;
+    width: number;
+    height: number;
+}
+
+export const ASPECT_RATIO_PRESETS: AspectRatioPreset[] = [
+    { id: '1:1', label: 'Square', description: 'Instagram post', width: 1080, height: 1080 },
+    { id: '16:9', label: 'Wide', description: 'YouTube / Twitter', width: 1920, height: 1080 },
+    { id: '9:16', label: 'Story', description: 'Instagram / TikTok story', width: 1080, height: 1920 },
+    { id: '4:5', label: 'Portrait', description: 'Instagram portrait', width: 1080, height: 1350 },
+    { id: '4:3', label: 'Classic', description: 'Standard', width: 1600, height: 1200 },
+    { id: '3:2', label: 'Photo', description: 'Photography', width: 1500, height: 1000 },
+    { id: '1.91:1', label: 'OG / LinkedIn', description: 'Open Graph / LinkedIn', width: 1200, height: 627 },
+];
 
 export type Alignment =
     'top-left' | 'top-center' | 'top-right' |
@@ -39,6 +57,7 @@ export interface BackgroundEffects {
     watercolor: number;
     pattern: 'none' | 'dots' | 'grid' | 'lines' | 'waves' | 'zigzag' | 'hexagons' | 'diagonal-stripes' | 'crosshatch' | 'plus';
     patternOpacity: number;
+    canvasCornerRadius?: number;
 }
 
 export interface TextShadow {
@@ -74,6 +93,9 @@ export interface TextObject {
     width?: number;
 }
 
+export type ArrowLineStyle = 'solid' | 'dashed' | 'dotted';
+export type ArrowHeadStyle = 'filled' | 'hollow' | 'none';
+
 export interface ArrowObject {
     id: string;
     type: 'arrow';
@@ -83,7 +105,18 @@ export interface ArrowObject {
     y2: number;
     color: string;
     strokeWidth: number;
+    lineStyle?: ArrowLineStyle;
+    headStyle?: ArrowHeadStyle;
 }
+
+export interface ArrowDefaults {
+    color: string;
+    strokeWidth: number;
+    lineStyle: ArrowLineStyle;
+    headStyle: ArrowHeadStyle;
+}
+
+export type CounterFormat = 'number' | 'roman' | 'alpha';
 
 export interface CounterObject {
     id: string;
@@ -91,9 +124,16 @@ export interface CounterObject {
     x: number;
     y: number;
     count: number;
-    format: 'number' | 'roman' | 'alpha';
+    format: CounterFormat;
     color: string;
     scale: number;
+}
+
+export interface CounterDefaults {
+    color: string;
+    scale: number;
+    format: CounterFormat;
+    startAt: number;
 }
 
 export interface RedactObject {
@@ -119,13 +159,35 @@ export interface ShapeObject {
     strokeWidth: number;
 }
 
-export type CanvasObject = TextObject | ArrowObject | CounterObject | RedactObject | ShapeObject;
+export type BrushMode = 'pencil' | 'highlighter' | 'blur';
+
+export interface BrushPoint {
+    x: number;
+    y: number;
+}
+
+export interface BrushObject {
+    id: string;
+    type: 'brush';
+    mode: BrushMode;
+    points: BrushPoint[];
+    color: string;
+    size: number;
+}
+
+export interface BrushDefaults {
+    mode: BrushMode;
+    color: string;
+    size: number;
+}
+
+export type CanvasObject = TextObject | ArrowObject | CounterObject | RedactObject | ShapeObject | BrushObject;
 
 
 export interface Selection {
     canvasKey: number;
     itemId: string;
-    type: 'text' | 'arrow' | 'counter' | 'redact' | 'shape';
+    type: 'text' | 'arrow' | 'counter' | 'redact' | 'shape' | 'brush';
 }
 
 export interface UploadedImage {
@@ -136,9 +198,13 @@ export interface UploadedImage {
     y?: number;
     width?: number;
     height?: number;
+    scale?: number;
+    crop?: { x: number; y: number; width: number; height: number };
 }
 
-export type DrawingMode = 'arrow' | 'redact' | 'shape' | 'counter' | 'move' | null;
+export type CropAspectRatio = 'free' | '1:1' | '16:9' | '9:16' | '4:3' | '3:2';
+
+export type DrawingMode = 'arrow' | 'redact' | 'shape' | 'counter' | 'move' | 'brush' | 'crop' | null;
 
 export interface ControlsProps {
     aspectRatio: AspectRatio;
@@ -166,6 +232,12 @@ export interface ControlsProps {
     generateNewGradient: () => void;
     onDownloadSingle: () => void;
     onDownloadZip: () => void;
+    onCopyToClipboard: () => void;
+    copyStatus: 'idle' | 'copying' | 'copied' | 'error';
+    exportFormat: 'png' | 'jpeg' | 'webp';
+    setExportFormat: React.Dispatch<React.SetStateAction<'png' | 'jpeg' | 'webp'>>;
+    exportQuality: number;
+    setExportQuality: React.Dispatch<React.SetStateAction<number>>;
     isDownloading: boolean;
     isDevMode: boolean;
     setIsDevMode: React.Dispatch<React.SetStateAction<boolean>>;
@@ -193,6 +265,7 @@ export interface ImagePreviewProps {
 
     texts: TextObject[];
     arrows: ArrowObject[];
+    arrowDefaults: ArrowDefaults;
     onTextUpdate: (id: string, props: Partial<Omit<TextObject, 'id'>>) => void;
     onTextUpdateWithHistory: (id: string, props: Partial<Omit<TextObject, 'id'>>) => void;
     onTextDelete: (id: string) => void;
@@ -215,9 +288,17 @@ export interface ImagePreviewProps {
     onShapeUpdate: (id: string, props: Partial<Omit<ShapeObject, 'id' | 'type'>>) => void;
     onShapeUpdateWithHistory: (id: string, props: Partial<Omit<ShapeObject, 'id' | 'type'>>) => void;
     onShapeDelete: (id: string) => void;
+    brushes: BrushObject[];
+    brushDefaults: BrushDefaults;
+    onBrushAdd: (brush: Omit<BrushObject, 'id' | 'type'>) => void;
+    onBrushDelete: (id: string) => void;
+    onBeginInteractionHistory: () => void;
+    cropImageId: string | null;
+    onCropApply: (crop: { x: number; y: number; width: number; height: number } | undefined) => void;
+    onCropCancel: () => void;
     onImageSettingsChange: <K extends keyof ImageSettings>(key: K, value: ImageSettings[K]) => void;
     selection: Selection | null;
-    onSelectObject: (canvasKey: number, id: string | null, type: 'text' | 'arrow' | 'counter' | 'redact' | 'shape') => void;
+    onSelectObject: (canvasKey: number, id: string | null, type: 'text' | 'arrow' | 'counter' | 'redact' | 'shape' | 'brush') => void;
     editing: Selection | null;
     onSetEditing: (canvasKey: number, id: string | null) => void;
     onActivate: () => void;

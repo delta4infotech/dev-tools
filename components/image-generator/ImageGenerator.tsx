@@ -3,9 +3,9 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Controls, PRESET_BACKGROUNDS } from "./Controls";
 import { ImagePreview } from "./ImagePreview";
 import { generateRandomGradient, gradientToString } from "./utils/gradient";
-import type { AspectRatio, Gradient, ImageSettings, BackgroundEffects, TextEffects, TextObject, Selection, UploadedImage, DrawingMode, ArrowObject, CounterObject, RedactObject, ShapeObject, CanvasObject } from "./types";
+import type { AspectRatio, Gradient, ImageSettings, BackgroundEffects, TextEffects, TextObject, Selection, UploadedImage, DrawingMode, ArrowObject, ArrowDefaults, ArrowLineStyle, ArrowHeadStyle, CounterObject, CounterDefaults, CounterFormat, RedactObject, ShapeObject, CanvasObject, BrushObject, BrushDefaults } from "./types";
 import { FONTS } from "./templates";
-import { Type, Undo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon, Move } from "./icons";
+import { Type, Undo, Redo, Trash2, ZoomIn, ZoomOut, Wand2, ArrowUpRight, Hash, EyeOff, Square, Circle, Triangle, Paintbrush, CounterIcon, Move, Upload, Pencil, Crop } from "./icons";
 import * as htmlToImage from "html-to-image";
 import JSZip from "jszip";
 import { Slider } from "./ui/Slider";
@@ -20,6 +20,7 @@ const DEFAULT_BACKGROUND_EFFECTS: BackgroundEffects = {
   watercolor: 0,
   pattern: "none",
   patternOpacity: 0.1,
+  canvasCornerRadius: 16,
 };
 
 const DEFAULT_TEXT_EFFECTS: TextEffects = {
@@ -36,7 +37,7 @@ const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
   scale: 1,
   shadow: 20,
   corners: 6,
-  alignment: "bottom-center",
+  alignment: "middle-center",
   glassmorphicBorder: {
     enabled: true,
     opacity: 0.83,
@@ -52,7 +53,7 @@ const createInitialText = (): TextObject => ({
   xPosition: 50,
   fontFamily: FONTS[0].family,
   fontColor: "#ffffff",
-  fontSizeScale: 1,
+  fontSizeScale: 0.4,
 });
 
 const createInitialCounter = (count: number = 1): CounterObject => ({
@@ -100,6 +101,8 @@ interface HistoryState {
   counters: Record<number, CounterObject[]>;
   redactions: Record<number, RedactObject[]>;
   shapes: Record<number, ShapeObject[]>;
+  brushes: Record<number, BrushObject[]>;
+  uploadedImages: UploadedImage[];
 }
 
 const SliderControl: React.FC<{
@@ -126,7 +129,7 @@ const SliderControl: React.FC<{
 
 const StylePopover: React.FC<{
   selectedObject: CanvasObject;
-  selectionType: "text" | "arrow" | "counter" | "redact" | "shape";
+  selectionType: "text" | "arrow" | "counter" | "redact" | "shape" | "brush";
   textEffects: TextEffects;
   onUpdateText: (props: Partial<Omit<TextObject, "id">>) => void;
   onUpdateArrow: (props: Partial<Omit<ArrowObject, "id" | "type">>) => void;
@@ -399,21 +402,270 @@ const StylePopover: React.FC<{
   );
 };
 
+const ArrowOptionsPopover: React.FC<{
+  arrowDefaults: ArrowDefaults;
+  setArrowDefaults: React.Dispatch<React.SetStateAction<ArrowDefaults>>;
+}> = ({ arrowDefaults, setArrowDefaults }) => {
+  const update = <K extends keyof ArrowDefaults>(key: K, value: ArrowDefaults[K]) =>
+    setArrowDefaults((prev) => ({ ...prev, [key]: value }));
+
+  const renderLinePreview = (style: ArrowLineStyle) => {
+    const dash = style === "dashed" ? "5 3" : style === "dotted" ? "1 3" : undefined;
+    return (
+      <svg width="34" height="10" viewBox="0 0 34 10">
+        <line x1="2" y1="5" x2="32" y2="5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={dash} />
+      </svg>
+    );
+  };
+
+  const renderHeadPreview = (head: ArrowHeadStyle) => (
+    <svg width="34" height="14" viewBox="0 0 34 14">
+      <line x1="2" y1="7" x2="24" y2="7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      {head === "filled" && <path d="M22,2 L32,7 L22,12 Z" fill="currentColor" />}
+      {head === "hollow" && <path d="M22,2 L32,7 L22,12 Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />}
+    </svg>
+  );
+
+  return (
+    <div
+      className="absolute bottom-full left-1/2 -translate-x-1/2 pb-3 w-72 z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="bg-neutral-800/90 backdrop-blur-xl rounded-xl shadow-2xl shadow-black/40 border border-white/10 overflow-hidden p-3 space-y-3">
+        <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Arrow Defaults</div>
+
+        <div className="flex items-center justify-between">
+          <label className="text-xs text-neutral-300">Color</label>
+          <ColorPicker color={arrowDefaults.color} onChange={(c) => update("color", c)} className="h-7 w-12" />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs text-neutral-300">Stroke Width</label>
+            <span className="text-xs font-mono text-neutral-500 tabular-nums">{arrowDefaults.strokeWidth}px</span>
+          </div>
+          <Slider value={[arrowDefaults.strokeWidth]} onValueChange={(vals) => update("strokeWidth", vals[0])} min={1} max={20} step={1} className="py-1" />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-neutral-300">Line Style</label>
+          <div className="flex bg-neutral-700/60 p-0.5 rounded-lg">
+            {(["solid", "dashed", "dotted"] as ArrowLineStyle[]).map((style) => (
+              <button
+                key={style}
+                onClick={() => update("lineStyle", style)}
+                className={`flex-1 py-1.5 px-1 flex items-center justify-center rounded-md transition-colors ${
+                  arrowDefaults.lineStyle === style ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+                title={style}
+              >
+                {renderLinePreview(style)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-neutral-300">Arrow Head</label>
+          <div className="flex bg-neutral-700/60 p-0.5 rounded-lg">
+            {(["filled", "hollow", "none"] as ArrowHeadStyle[]).map((head) => (
+              <button
+                key={head}
+                onClick={() => update("headStyle", head)}
+                className={`flex-1 py-1.5 px-1 flex items-center justify-center rounded-md transition-colors ${
+                  arrowDefaults.headStyle === head ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+                title={head}
+              >
+                {renderHeadPreview(head)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BrushOptionsPopover: React.FC<{
+  brushDefaults: BrushDefaults;
+  setBrushDefaults: React.Dispatch<React.SetStateAction<BrushDefaults>>;
+}> = ({ brushDefaults, setBrushDefaults }) => {
+  const update = <K extends keyof BrushDefaults>(key: K, value: BrushDefaults[K]) =>
+    setBrushDefaults((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <div
+      className="absolute bottom-full left-1/2 -translate-x-1/2 pb-3 w-72 z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="bg-neutral-800/90 backdrop-blur-xl rounded-xl shadow-2xl shadow-black/40 border border-white/10 overflow-hidden p-3 space-y-3">
+        <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Brush</div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-neutral-300">Mode</label>
+          <div className="flex bg-neutral-700/60 p-0.5 rounded-lg">
+            {(["blur", "highlighter", "pencil"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => update("mode", mode)}
+                className={`flex-1 py-1.5 px-2 text-xs font-medium capitalize rounded-md transition-colors ${
+                  brushDefaults.mode === mode ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {brushDefaults.mode !== "blur" && (
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-neutral-300">Color</label>
+            <ColorPicker color={brushDefaults.color} onChange={(c) => update("color", c)} className="h-7 w-12" />
+          </div>
+        )}
+
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs text-neutral-300">Size</label>
+            <span className="text-xs font-mono text-neutral-500 tabular-nums">{brushDefaults.size}px</span>
+          </div>
+          <Slider value={[brushDefaults.size]} onValueChange={(vals) => update("size", vals[0])} min={4} max={80} step={1} className="py-1" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CounterOptionsPopover: React.FC<{
+  counterDefaults: CounterDefaults;
+  setCounterDefaults: React.Dispatch<React.SetStateAction<CounterDefaults>>;
+}> = ({ counterDefaults, setCounterDefaults }) => {
+  const update = <K extends keyof CounterDefaults>(key: K, value: CounterDefaults[K]) =>
+    setCounterDefaults((prev) => ({ ...prev, [key]: value }));
+
+  const previewLabel = (() => {
+    const n = counterDefaults.startAt;
+    if (counterDefaults.format === "roman") {
+      const map: [number, string][] = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+      let num = n, out = "";
+      for (const [v, s] of map) {
+        while (num >= v) { out += s; num -= v; }
+      }
+      return out || String(n);
+    }
+    if (counterDefaults.format === "alpha") {
+      // 1 → A, 26 → Z, 27 → AA
+      let num = n, out = "";
+      while (num > 0) {
+        const rem = (num - 1) % 26;
+        out = String.fromCharCode(65 + rem) + out;
+        num = Math.floor((num - 1) / 26);
+      }
+      return out || "A";
+    }
+    return String(n);
+  })();
+
+  return (
+    <div
+      className="absolute bottom-full left-1/2 -translate-x-1/2 pb-3 w-72 z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="bg-neutral-800/90 backdrop-blur-xl rounded-xl shadow-2xl shadow-black/40 border border-white/10 overflow-hidden p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Counter</div>
+          <div
+            className="flex items-center justify-center rounded-full font-bold text-white text-xs"
+            style={{
+              width: 24 * counterDefaults.scale,
+              height: 24 * counterDefaults.scale,
+              minWidth: 18,
+              minHeight: 18,
+              backgroundColor: counterDefaults.color,
+            }}
+            title="Preview"
+          >
+            {previewLabel}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label className="text-xs text-neutral-300">Color</label>
+          <ColorPicker color={counterDefaults.color} onChange={(c) => update("color", c)} className="h-7 w-12" />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs text-neutral-300">Size</label>
+            <span className="text-xs font-mono text-neutral-500 tabular-nums">{counterDefaults.scale.toFixed(2)}×</span>
+          </div>
+          <Slider value={[counterDefaults.scale]} onValueChange={(vals) => update("scale", vals[0])} min={0.5} max={3} step={0.1} className="py-1" />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-neutral-300">Format</label>
+          <div className="flex bg-neutral-700/60 p-0.5 rounded-lg">
+            {(["number", "roman", "alpha"] as CounterFormat[]).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => update("format", fmt)}
+                className={`flex-1 py-1.5 px-2 text-xs font-medium capitalize rounded-md transition-colors ${
+                  counterDefaults.format === fmt ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+                title={fmt === "number" ? "1, 2, 3..." : fmt === "roman" ? "I, II, III..." : "A, B, C..."}
+              >
+                {fmt === "number" ? "1, 2" : fmt === "roman" ? "I, II" : "A, B"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label className="text-xs text-neutral-300">Start at</label>
+          <input
+            type="number"
+            value={counterDefaults.startAt}
+            onChange={(e) => update("startAt", Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 bg-neutral-700 text-white text-xs rounded-md p-1.5 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 text-right tabular-nums"
+            min={1}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AnnotationToolbar: React.FC<{
   onAddText: () => void;
   onAddCounter: () => void;
   onAddShape: () => void;
   onAddRedact: () => void;
   onUndo: () => void;
+  onRedo: () => void;
   onDeleteSelected: () => void;
   isObjectSelected: boolean;
+  isStyleableSelected: boolean;
   canUndo: boolean;
+  canRedo: boolean;
   children: React.ReactNode;
   isStylePopoverOpen: boolean;
   onToggleStylePopover: () => void;
   drawingMode: DrawingMode;
   setDrawingMode: React.Dispatch<React.SetStateAction<DrawingMode>>;
-}> = ({ onAddText, onAddCounter, onAddShape, onAddRedact, onUndo, onDeleteSelected, isObjectSelected, canUndo, children, isStylePopoverOpen, onToggleStylePopover, drawingMode, setDrawingMode }) => {
+  arrowDefaults: ArrowDefaults;
+  setArrowDefaults: React.Dispatch<React.SetStateAction<ArrowDefaults>>;
+  brushDefaults: BrushDefaults;
+  setBrushDefaults: React.Dispatch<React.SetStateAction<BrushDefaults>>;
+  counterDefaults: CounterDefaults;
+  setCounterDefaults: React.Dispatch<React.SetStateAction<CounterDefaults>>;
+  onCrop: () => void;
+  canCrop: boolean;
+}> = ({ onAddText, onAddCounter, onAddShape, onAddRedact, onUndo, onRedo, onDeleteSelected, isObjectSelected, isStyleableSelected, canUndo, canRedo, children, isStylePopoverOpen, onToggleStylePopover, drawingMode, setDrawingMode, arrowDefaults, setArrowDefaults, brushDefaults, setBrushDefaults, counterDefaults, setCounterDefaults, onCrop, canCrop }) => {
   const ToolbarButton: React.FC<{
     onClick?: () => void;
     disabled?: boolean;
@@ -438,23 +690,41 @@ const AnnotationToolbar: React.FC<{
       <ToolbarButton onClick={onAddText} title="Add Text">
         <Type className="w-5 h-5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => setDrawingMode(drawingMode === "counter" ? null : "counter")} isActive={drawingMode === "counter"} title="Add Counter">
-        <CounterIcon className="w-5 h-5" />
-      </ToolbarButton>
+      <div className="relative group">
+        <CounterOptionsPopover counterDefaults={counterDefaults} setCounterDefaults={setCounterDefaults} />
+        <ToolbarButton onClick={() => setDrawingMode(drawingMode === "counter" ? null : "counter")} isActive={drawingMode === "counter"} title="Add Counter">
+          <CounterIcon className="w-5 h-5" />
+        </ToolbarButton>
+      </div>
       <div className="w-px h-6 bg-white/10 mx-1"></div>
       <ToolbarButton onClick={() => setDrawingMode(drawingMode === "move" ? null : "move")} isActive={drawingMode === "move"} title="Move Image (Hand Mode)">
         <Move className="w-5 h-5" />
       </ToolbarButton>
-      <ToolbarButton onClick={() => setDrawingMode(drawingMode === "arrow" ? null : "arrow")} isActive={drawingMode === "arrow"} title="Draw Arrow">
-        <ArrowUpRight className="w-5 h-5" />
+      <div className="relative group">
+        <ArrowOptionsPopover arrowDefaults={arrowDefaults} setArrowDefaults={setArrowDefaults} />
+        <ToolbarButton onClick={() => setDrawingMode(drawingMode === "arrow" ? null : "arrow")} isActive={drawingMode === "arrow"} title="Draw Arrow">
+          <ArrowUpRight className="w-5 h-5" />
+        </ToolbarButton>
+      </div>
+      <div className="relative group">
+        <BrushOptionsPopover brushDefaults={brushDefaults} setBrushDefaults={setBrushDefaults} />
+        <ToolbarButton onClick={() => setDrawingMode(drawingMode === "brush" ? null : "brush")} isActive={drawingMode === "brush"} title="Brush (blur / highlight / pencil)">
+          <Pencil className="w-5 h-5" />
+        </ToolbarButton>
+      </div>
+      <ToolbarButton onClick={onCrop} disabled={!canCrop} title="Crop Image">
+        <Crop className="w-5 h-5" />
       </ToolbarButton>
 
-      <ToolbarButton onClick={onToggleStylePopover} disabled={!isObjectSelected} title="Style" isActive={isStylePopoverOpen}>
+      <ToolbarButton onClick={onToggleStylePopover} disabled={!isStyleableSelected} title="Style" isActive={isStylePopoverOpen}>
         <Paintbrush className="w-5 h-5" />
       </ToolbarButton>
       <div className="w-px h-6 bg-white/10 mx-1"></div>
-      <ToolbarButton onClick={onUndo} disabled={!canUndo} title="Undo">
+      <ToolbarButton onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
         <Undo className="w-5 h-5" />
+      </ToolbarButton>
+      <ToolbarButton onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y / Ctrl+Shift+Z)">
+        <Redo className="w-5 h-5" />
       </ToolbarButton>
       <ToolbarButton onClick={onDeleteSelected} disabled={!isObjectSelected} title="Delete Selected" className="disabled:text-neutral-600 text-neutral-300 hover:text-red-400 hover:bg-red-500/20">
         <Trash2 className="w-5 h-5" />
@@ -462,6 +732,7 @@ const AnnotationToolbar: React.FC<{
     </div>
   );
 };
+
 
 const ZoomControl: React.FC<{ zoom: number; setZoom: React.Dispatch<React.SetStateAction<number>> }> = ({ zoom, setZoom }) => {
   const zoomIn = () => setZoom((z) => Math.min(3, z + 0.1));
@@ -489,6 +760,12 @@ export default function ImageGenerator() {
   const [allCounters, setAllCounters] = useState<Record<number, CounterObject[]>>({});
   const [allRedactions, setAllRedactions] = useState<Record<number, RedactObject[]>>({});
   const [allShapes, setAllShapes] = useState<Record<number, ShapeObject[]>>({});
+  const [allBrushes, setAllBrushes] = useState<Record<number, BrushObject[]>>({});
+  const [brushDefaults, setBrushDefaults] = useState<BrushDefaults>({
+    mode: "blur",
+    color: "#fde047",
+    size: 20,
+  });
   const [selection, setSelection] = useState<Selection | null>(initialSelectionState);
   const [editing, setEditing] = useState<Selection | null>(null);
 
@@ -513,6 +790,10 @@ export default function ImageGenerator() {
     if (key === "alignment") {
       setUploadedImages((prevImages) => prevImages.map(img => ({ ...img, x: undefined, y: undefined })));
       setImageSettings((prev) => ({ ...prev, [key]: value, x: undefined, y: undefined }));
+    } else if (key === "scale" && activeImageIndex !== null) {
+      setUploadedImages((prevImages) => prevImages.map((img, index) => (
+        index === activeImageIndex ? { ...img, scale: value as number } : img
+      )));
     } else {
       setImageSettings((prev) => ({ ...prev, [key]: value }));
     }
@@ -530,7 +811,30 @@ export default function ImageGenerator() {
   const [isStylePopoverOpen, setIsStylePopoverOpen] = useState(false);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>(null);
   const [applyToAll, setApplyToAll] = useState(false);
+  const [cropImageId, setCropImageId] = useState<string | null>(null);
+  const [arrowDefaults, setArrowDefaults] = useState<ArrowDefaults>({
+    color: "#ef4444",
+    strokeWidth: 4,
+    lineStyle: "solid",
+    headStyle: "filled",
+  });
+  const [counterDefaults, setCounterDefaults] = useState<CounterDefaults>({
+    color: "#ef4444",
+    scale: 1,
+    format: "number",
+    startAt: 1,
+  });
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef(0);
+  const [exportFormat, setExportFormat] = useState<"png" | "jpeg" | "webp">("png");
+  const [exportQuality, setExportQuality] = useState(0.95);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "error">("idle");
 
+  const mainRef = useRef<HTMLElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const zoomContentRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [zoomContentSize, setZoomContentSize] = useState<{ w: number; h: number } | null>(null);
   const singlePreviewRef = useRef<HTMLDivElement>(null);
   const previewRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -570,31 +874,73 @@ export default function ImageGenerator() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [history.length, uploadedImages, backgroundImage]);
 
-  const pushToHistory = useCallback(() => {
-    setHistory((prev) => [...prev, { texts: allTexts, arrows: allArrows, counters: allCounters, redactions: allRedactions, shapes: allShapes }]);
-  }, [allTexts, allArrows, allCounters, allRedactions, allShapes]);
+  const [redoStack, setRedoStack] = useState<HistoryState[]>([]);
 
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    const previousState = history[history.length - 1];
-    setAllTexts(previousState.texts);
-    setAllArrows(previousState.arrows);
-    setAllCounters(previousState.counters || {});
-    setAllRedactions(previousState.redactions || {});
-    setAllShapes(previousState.shapes || {});
-    setHistory(history.slice(0, -1));
+  const snapshot = useCallback((): HistoryState => ({
+    texts: allTexts,
+    arrows: allArrows,
+    counters: allCounters,
+    redactions: allRedactions,
+    shapes: allShapes,
+    brushes: allBrushes,
+    uploadedImages,
+  }), [allTexts, allArrows, allCounters, allRedactions, allShapes, allBrushes, uploadedImages]);
+
+  const applySnapshot = (s: HistoryState) => {
+    setAllTexts(s.texts);
+    setAllArrows(s.arrows);
+    setAllCounters(s.counters || {});
+    setAllRedactions(s.redactions || {});
+    setAllShapes(s.shapes || {});
+    setAllBrushes(s.brushes || {});
+    setUploadedImages(s.uploadedImages || []);
     setSelection(null);
     setEditing(null);
   };
 
+  const pushToHistory = useCallback(() => {
+    setHistory((prev) => [...prev, snapshot()]);
+    setRedoStack([]); // any new action clears redo
+  }, [snapshot]);
+
+  const getChunkSize = useCallback(() => {
+    if (!imageSettings.mockup) return 1;
+    if (imageSettings.mockupLayout === 'grid-3') return 3;
+    if (imageSettings.mockupLayout === 'grid-2') return 2;
+    return 1;
+  }, [imageSettings.mockup, imageSettings.mockupLayout]);
+
+  const getCanvasKeyForImageIndex = useCallback((imageIndex: number | null) => {
+    if (imageIndex === null) return -1;
+    return Math.floor(imageIndex / getChunkSize());
+  }, [getChunkSize]);
+
+  const getActiveCanvasKey = useCallback(() => getCanvasKeyForImageIndex(activeImageIndex), [activeImageIndex, getCanvasKeyForImageIndex]);
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previousState = history[history.length - 1];
+    setRedoStack((r) => [...r, snapshot()]);
+    setHistory(history.slice(0, -1));
+    applySnapshot(previousState);
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    const nextState = redoStack[redoStack.length - 1];
+    setHistory((h) => [...h, snapshot()]);
+    setRedoStack(redoStack.slice(0, -1));
+    applySnapshot(nextState);
+  };
+
   const handleAddText = useCallback(() => {
-    const activeCanvasKey = activeImageIndex !== null ? activeImageIndex : -1;
+    const activeCanvasKey = getActiveCanvasKey();
     pushToHistory();
     const newText = createInitialText();
     setAllTexts((prev) => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newText] }));
     setSelection({ canvasKey: activeCanvasKey, itemId: newText.id, type: "text" });
     setEditing({ canvasKey: activeCanvasKey, itemId: newText.id, type: "text" });
-  }, [activeImageIndex, pushToHistory]);
+  }, [getActiveCanvasKey, pushToHistory]);
 
   const handleArrowAdd = useCallback(
     (canvasKey: number, arrow: Omit<ArrowObject, "id" | "type">) => {
@@ -789,12 +1135,19 @@ export default function ImageGenerator() {
 
   // Counter Handlers
   const handleCounterAdd = useCallback(
-    (coords?: { x: number; y: number }) => {
-      const activeCanvasKey = activeImageIndex !== null ? activeImageIndex : -1;
+    (canvasKeyParam?: number, coords?: { x: number; y: number }) => {
+      const activeCanvasKey = canvasKeyParam ?? getActiveCanvasKey();
       pushToHistory();
       const existing = allCounters[activeCanvasKey] || [];
-      const nextCount = existing.length > 0 ? Math.max(...existing.map((c) => c.count)) + 1 : 1;
-      const newCounter = createInitialCounter(nextCount);
+      // Next count: continue from highest existing, but at minimum start from `counterDefaults.startAt`.
+      const highest = existing.length > 0 ? Math.max(...existing.map((c) => c.count)) : counterDefaults.startAt - 1;
+      const nextCount = Math.max(highest + 1, counterDefaults.startAt);
+      const newCounter: CounterObject = {
+        ...createInitialCounter(nextCount),
+        color: counterDefaults.color,
+        scale: counterDefaults.scale,
+        format: counterDefaults.format,
+      };
 
       if (coords) {
         newCounter.x = coords.x;
@@ -804,7 +1157,7 @@ export default function ImageGenerator() {
       setAllCounters((prev) => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newCounter] }));
       setSelection({ canvasKey: activeCanvasKey, itemId: newCounter.id, type: "counter" });
     },
-    [activeImageIndex, allCounters, pushToHistory]
+    [getActiveCanvasKey, allCounters, pushToHistory, counterDefaults]
   );
 
   const handleCounterUpdate = useCallback((canvasKey: number, id: string, props: Partial<Omit<CounterObject, "id" | "type">>) => {
@@ -1005,6 +1358,29 @@ export default function ImageGenerator() {
     [selection, pushToHistory]
   );
 
+  const handleBrushAdd = useCallback(
+    (canvasKeyParam: number | undefined, brush: Omit<BrushObject, "id" | "type">) => {
+      pushToHistory();
+      const activeCanvasKey = canvasKeyParam ?? (activeImageIndex !== null ? activeImageIndex : -1);
+      const newBrush: BrushObject = { ...brush, id: `brush-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type: "brush" };
+      setAllBrushes((prev) => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newBrush] }));
+      setSelection({ canvasKey: activeCanvasKey, itemId: newBrush.id, type: "brush" });
+    },
+    [pushToHistory, activeImageIndex]
+  );
+
+  const handleBrushDelete = useCallback(
+    (canvasKey: number, id: string) => {
+      pushToHistory();
+      setAllBrushes((prev) => ({
+        ...prev,
+        [canvasKey]: (prev[canvasKey] || []).filter((b) => b.id !== id),
+      }));
+      if (selection?.itemId === id) setSelection(null);
+    },
+    [selection, pushToHistory]
+  );
+
   const handleDeleteSelected = useCallback(() => {
     if (selection) {
       if (selection.type === "text") {
@@ -1017,9 +1393,11 @@ export default function ImageGenerator() {
         handleRedactDelete(selection.canvasKey, selection.itemId);
       } else if (selection.type === "shape") {
         handleShapeDelete(selection.canvasKey, selection.itemId);
+      } else if (selection.type === "brush") {
+        handleBrushDelete(selection.canvasKey, selection.itemId);
       }
     }
-  }, [selection, handleTextDelete, handleArrowDelete, handleCounterDelete, handleRedactDelete, handleShapeDelete]);
+  }, [selection, handleTextDelete, handleArrowDelete, handleCounterDelete, handleRedactDelete, handleShapeDelete, handleBrushDelete]);
 
   const [clipboard, setClipboard] = useState<{ type: string; data: any } | null>(null);
 
@@ -1032,21 +1410,16 @@ export default function ImageGenerator() {
     else if (type === "counter") data = allCounters[canvasKey]?.find(c => c.id === itemId);
     else if (type === "redact") data = allRedactions[canvasKey]?.find(r => r.id === itemId);
     else if (type === "shape") data = allShapes[canvasKey]?.find(s => s.id === itemId);
+    else if (type === "brush") data = allBrushes[canvasKey]?.find(b => b.id === itemId);
     
     if (data) {
       setClipboard({ type, data });
     }
-  }, [selection, allTexts, allArrows, allCounters, allRedactions, allShapes]);
+  }, [selection, allTexts, allArrows, allCounters, allRedactions, allShapes, allBrushes]);
 
   const handlePaste = useCallback(() => {
     if (!clipboard) return;
-    const getChunkSize = () => {
-      if (!imageSettings.mockup) return 1;
-      if (imageSettings.mockupLayout === 'grid-3') return 3;
-      if (imageSettings.mockupLayout === 'grid-2') return 2;
-      return 1;
-    };
-    const activeCanvasKey = activeImageIndex !== null && uploadedImages.length > 0 ? Math.floor(activeImageIndex / getChunkSize()) : -1;
+    const activeCanvasKey = uploadedImages.length > 0 ? getActiveCanvasKey() : -1;
     
     pushToHistory();
     
@@ -1059,9 +1432,12 @@ export default function ImageGenerator() {
     if (newData.y !== undefined) newData.y = Math.min(100, newData.y + offset);
     if (newData.xPosition !== undefined) newData.xPosition = Math.min(100, newData.xPosition + offset);
     if (newData.yPosition !== undefined) newData.yPosition = Math.min(100, newData.yPosition + offset);
-    if (newData.start) {
-      newData.start = { x: Math.min(100, newData.start.x + offset), y: Math.min(100, newData.start.y + offset) };
-      newData.end = { x: Math.min(100, newData.end.x + offset), y: Math.min(100, newData.end.y + offset) };
+    if (newData.x1 !== undefined) newData.x1 = Math.min(100, newData.x1 + offset);
+    if (newData.y1 !== undefined) newData.y1 = Math.min(100, newData.y1 + offset);
+    if (newData.x2 !== undefined) newData.x2 = Math.min(100, newData.x2 + offset);
+    if (newData.y2 !== undefined) newData.y2 = Math.min(100, newData.y2 + offset);
+    if (Array.isArray(newData.points)) {
+      newData.points = newData.points.map((p: any) => ({ x: Math.min(100, p.x + offset), y: Math.min(100, p.y + offset) }));
     }
     
     if (clipboard.type === "text") {
@@ -1074,10 +1450,59 @@ export default function ImageGenerator() {
       setAllRedactions(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
     } else if (clipboard.type === "shape") {
       setAllShapes(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
+    } else if (clipboard.type === "brush") {
+      setAllBrushes(prev => ({ ...prev, [activeCanvasKey]: [...(prev[activeCanvasKey] || []), newData] }));
     }
     
     setSelection({ canvasKey: activeCanvasKey, itemId: newId, type: clipboard.type as any });
-  }, [clipboard, activeImageIndex, imageSettings.mockup, imageSettings.mockupLayout, uploadedImages.length, pushToHistory]);
+  }, [clipboard, getActiveCanvasKey, uploadedImages.length, pushToHistory]);
+
+  const addImageFiles = useCallback(
+    (files: File[]) => {
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      if (imageFiles.length === 0) return;
+      if (uploadedImages.length + imageFiles.length > 10) {
+        alert("You can upload a maximum of 10 images.");
+        return;
+      }
+      const newImagesPromises = imageFiles.map((file: File) => {
+        return new Promise<UploadedImage>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target?.result && typeof e.target.result === "string") {
+              const baseName = file.name ? file.name.replace(/\.[^/.]+$/, "") : `pasted-${Date.now()}`;
+              resolve({ id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, src: e.target.result, name: baseName });
+            } else {
+              reject(new Error("Failed to read file"));
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(newImagesPromises)
+        .then((newImages) => {
+          const prevUploadedLength = uploadedImages.length;
+          setUploadedImages((prev) => [...prev, ...newImages]);
+          setActiveImageIndex(prevUploadedLength);
+          setAllTexts((prev) => {
+            const newTextEntries: Record<number, TextObject[]> = {};
+            const textToCarryOver = prev[-1] || [];
+            newImages.forEach((_, i) => {
+              const newIndex = prevUploadedLength + i;
+              if (prevUploadedLength === 0 && i === 0) {
+                newTextEntries[newIndex] = textToCarryOver;
+              } else {
+                newTextEntries[newIndex] = [];
+              }
+            });
+            return { ...prev, ...newTextEntries };
+          });
+        })
+        .catch((err) => console.error("Error reading files:", err));
+    },
+    [uploadedImages.length]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1096,14 +1521,80 @@ export default function ImageGenerator() {
       if (modifier && e.key.toLowerCase() === 'c' && selection) {
         e.preventDefault();
         handleCopySelected();
-      } else if (modifier && e.key.toLowerCase() === 'v') {
+      } else if (modifier && e.key.toLowerCase() === 'v' && selection) {
+        // Only handle duplicate-paste here when an object is selected.
+        // Image-paste from system clipboard is handled by the document-level paste listener below.
         e.preventDefault();
         handlePaste();
+      } else if (modifier && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((modifier && e.key.toLowerCase() === 'z' && e.shiftKey) || (modifier && e.key.toLowerCase() === 'y')) {
+        e.preventDefault();
+        handleRedo();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selection, editing, handleDeleteSelected, handleCopySelected, handlePaste]);
+
+  useEffect(() => {
+    const handleClipboardPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (selection) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        addImageFiles(files);
+      }
+    };
+    window.addEventListener("paste", handleClipboardPaste);
+    return () => window.removeEventListener("paste", handleClipboardPaste);
+  }, [selection, addImageFiles]);
+
+  // Ctrl/Cmd + wheel zooms the whole canvas viewport. Attached as non-passive so we can
+  // preventDefault and stop the browser from zooming the whole page.
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.05 : 1 / 1.05;
+      setCanvasZoom((z) => Math.min(2, Math.max(0.3, z * factor)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Measure the unscaled natural size of the canvas content (the first child of the zoom div,
+  // which is the grid/single-image wrapper). We read its offsetWidth/Height which give the
+  // layout box, unaffected by the parent's transform.
+  useEffect(() => {
+    const zoomDiv = zoomContentRef.current;
+    if (!zoomDiv) return;
+    const child = zoomDiv.firstElementChild as HTMLElement | null;
+    if (!child) return;
+    const update = () => {
+      const w = child.offsetWidth;
+      const h = child.offsetHeight;
+      if (w > 0 && h > 0) setZoomContentSize({ w, h });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(child);
+    return () => ro.disconnect();
+  }, [uploadedImages.length, aspectRatio, imageSettings.mockup, imageSettings.mockupLayout]);
 
   const generateNewGradient = useCallback(() => {
     setGradient(generateRandomGradient());
@@ -1113,49 +1604,8 @@ export default function ImageGenerator() {
     const files = event.target.files;
     const input = event.target;
     if (!files || files.length === 0) return;
-    const fileCount = files.length;
-    if (uploadedImages.length + fileCount > 10) {
-      alert("You can upload a maximum of 10 images.");
-      input.value = "";
-      return;
-    }
-    const newImagesPromises = Array.from(files).map((file: File) => {
-      return new Promise<UploadedImage>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result && typeof e.target.result === "string") {
-            resolve({ id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, src: e.target.result, name: file.name.replace(/\.[^/.]+$/, "") });
-          } else {
-            reject(new Error("Failed to read file"));
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    });
-    Promise.all(newImagesPromises)
-      .then((newImages) => {
-        const prevUploadedLength = uploadedImages.length;
-        setUploadedImages((prev) => [...prev, ...newImages]);
-        setActiveImageIndex(prevUploadedLength);
-        setAllTexts((prev) => {
-          const newTextEntries: Record<number, TextObject[]> = {};
-          const textToCarryOver = prev[-1] || [];
-          newImages.forEach((_, i) => {
-            const newIndex = prevUploadedLength + i;
-            if (prevUploadedLength === 0 && i === 0) {
-              newTextEntries[newIndex] = textToCarryOver;
-            } else {
-              newTextEntries[newIndex] = [];
-            }
-          });
-          return { ...prev, ...newTextEntries };
-        });
-      })
-      .catch((err) => console.error("Error reading files:", err))
-      .finally(() => {
-        if (input) input.value = "";
-      });
+    addImageFiles(Array.from(files));
+    if (input) input.value = "";
   };
 
   const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1173,17 +1623,23 @@ export default function ImageGenerator() {
   const removeUploadedImage = (indexToRemove: number) => {
     pushToHistory();
     setUploadedImages((prevImages) => prevImages.filter((_, index) => index !== indexToRemove));
-    setAllTexts((prevAllTexts) => {
-      const newAllTexts: Record<number, TextObject[]> = { "-1": prevAllTexts[-1] || [] };
-      Object.keys(prevAllTexts).forEach((keyStr) => {
+    const remapRecord = <T,>(record: Record<number, T[]>) => {
+      const remapped: Record<number, T[]> = { [-1]: record[-1] || [] };
+      Object.keys(record).forEach((keyStr) => {
         const key = parseInt(keyStr, 10);
         if (key !== -1) {
-          if (key < indexToRemove) newAllTexts[key] = prevAllTexts[key];
-          else if (key > indexToRemove) newAllTexts[key - 1] = prevAllTexts[key];
+          if (key < indexToRemove) remapped[key] = record[key];
+          else if (key > indexToRemove) remapped[key - 1] = record[key];
         }
       });
-      return newAllTexts;
-    });
+      return remapped;
+    };
+    setAllTexts(remapRecord);
+    setAllArrows(remapRecord);
+    setAllCounters(remapRecord);
+    setAllRedactions(remapRecord);
+    setAllShapes(remapRecord);
+    setAllBrushes(remapRecord);
     setActiveImageIndex((prev) => {
       if (prev === null) return null;
       if (prev === indexToRemove) return uploadedImages.length - 1 > 0 ? Math.min(prev, uploadedImages.length - 2) : null;
@@ -1199,15 +1655,46 @@ export default function ImageGenerator() {
     setUploadedImages([]);
     setActiveImageIndex(null);
     setAllTexts({ [-1]: allTexts[-1] || [] });
+    setAllArrows({});
+    setAllCounters({});
+    setAllRedactions({});
+    setAllShapes({});
+    setAllBrushes({});
     setSelection(null);
     setEditing(null);
   };
 
   const generateRandomFilename = () => `d4_${Math.random().toString(36).substr(2, 6)}`;
 
+  const captureNode = useCallback(
+    async (node: HTMLDivElement, format: "png" | "jpeg" | "webp" = "png", quality: number = 0.95): Promise<string> => {
+      // Use offsetWidth/Height (unscaled layout box) so we capture at the true canvas size,
+      // independent of the viewport-level canvasZoom transform applied higher in the tree.
+      const width = node.offsetWidth;
+      const height = node.offsetHeight;
+      const options = {
+        cacheBust: true,
+        pixelRatio: 4,
+        quality,
+        width,
+        height,
+        // Override transform on the capture root so the cloned subtree starts at identity.
+        style: { transform: "none", transformOrigin: "top left" },
+      };
+      if (format === "jpeg") return htmlToImage.toJpeg(node, options);
+      if (format === "webp") {
+        const canvas = await htmlToImage.toCanvas(node, options);
+        return canvas.toDataURL("image/webp", quality);
+      }
+      return htmlToImage.toPng(node, options);
+    },
+    []
+  );
+
   const handleDownloadSingle = useCallback(async () => {
     const activeIdx = activeImageIndex;
-    const nodeToCapture: HTMLDivElement | null = activeIdx !== null ? (previewRefs.current[activeIdx] ?? null) : singlePreviewRef.current;
+    const previewIndex = activeIdx !== null ? getCanvasKeyForImageIndex(activeIdx) : -1;
+    const nodeToCapture: HTMLDivElement | null = activeIdx !== null ? (previewRefs.current[previewIndex] ?? null) : singlePreviewRef.current;
     if (!nodeToCapture) {
       alert(uploadedImages.length > 0 ? "Please select an image to download." : "Could not generate image.");
       return;
@@ -1215,23 +1702,16 @@ export default function ImageGenerator() {
     setIsDownloading(true);
     setSelection(null);
     setIsStylePopoverOpen(false);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    setCropImageId(null);
+    const prevZoom = canvasZoom;
+    setCanvasZoom(1);
+    // Wait a frame for the overlay/handles to actually unmount before capturing.
+    await new Promise((resolve) => setTimeout(resolve, 250));
     try {
-      const width = nodeToCapture.offsetWidth;
-      const height = nodeToCapture.offsetHeight;
-      const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
-        cacheBust: true,
-        pixelRatio: 4,
-        quality: 1.0,
-        width,
-        height,
-        style: {
-          transform: "none",
-        }
-      });
+      const dataUrl = await captureNode(nodeToCapture, exportFormat, exportQuality);
       const link = document.createElement("a");
       const filename = activeIdx !== null && uploadedImages[activeIdx] ? uploadedImages[activeIdx].name : generateRandomFilename();
-      link.download = `${filename}.png`;
+      link.download = `${filename}.${exportFormat === "jpeg" ? "jpg" : exportFormat}`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -1239,33 +1719,30 @@ export default function ImageGenerator() {
       alert("Could not generate image. Please try again.");
     } finally {
       setIsDownloading(false);
+      setCanvasZoom(prevZoom);
     }
-  }, [activeImageIndex, uploadedImages]);
+  }, [activeImageIndex, uploadedImages, exportFormat, exportQuality, captureNode, getCanvasKeyForImageIndex, canvasZoom]);
 
   const handleDownloadZip = useCallback(async () => {
     if (uploadedImages.length < 2) return;
     setIsDownloading(true);
     setSelection(null);
     setIsStylePopoverOpen(false);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    setCropImageId(null);
+    const prevZoom = canvasZoom;
+    setCanvasZoom(1);
+    await new Promise((resolve) => setTimeout(resolve, 250));
     try {
       const zip = new JSZip();
-      for (let i = 0; i < uploadedImages.length; i++) {
+      const ext = exportFormat === "jpeg" ? "jpg" : exportFormat;
+      const chunkSize = getChunkSize();
+      const previewCount = Math.ceil(uploadedImages.length / chunkSize);
+      for (let i = 0; i < previewCount; i++) {
         const nodeToCapture = previewRefs.current[i];
-        if (nodeToCapture) {
-          const width = nodeToCapture.offsetWidth;
-          const height = nodeToCapture.offsetHeight;
-          const dataUrl: string = await htmlToImage.toPng(nodeToCapture, {
-            cacheBust: true,
-            pixelRatio: 4,
-            quality: 1.0,
-            width,
-            height,
-            style: {
-              transform: "none",
-            }
-          });
-          zip.file(`${uploadedImages[i].name}.png`, dataUrl.substring(dataUrl.indexOf(",") + 1), { base64: true });
+        const firstImage = uploadedImages[i * chunkSize];
+        if (nodeToCapture && firstImage) {
+          const dataUrl = await captureNode(nodeToCapture, exportFormat, exportQuality);
+          zip.file(`${firstImage.name}.${ext}`, dataUrl.substring(dataUrl.indexOf(",") + 1), { base64: true });
         }
       }
       const content = (await zip.generateAsync({ type: "blob" })) as Blob;
@@ -1279,8 +1756,50 @@ export default function ImageGenerator() {
       alert("Could not generate images zip. Please try again.");
     } finally {
       setIsDownloading(false);
+      setCanvasZoom(prevZoom);
     }
-  }, [uploadedImages]);
+  }, [uploadedImages, exportFormat, exportQuality, captureNode, getChunkSize, canvasZoom]);
+
+  const handleCopyToClipboard = useCallback(async () => {
+    const activeIdx = activeImageIndex;
+    const previewIndex = activeIdx !== null ? getCanvasKeyForImageIndex(activeIdx) : -1;
+    const nodeToCapture: HTMLDivElement | null = activeIdx !== null ? (previewRefs.current[previewIndex] ?? null) : singlePreviewRef.current;
+    if (!nodeToCapture) return;
+    if (typeof window === "undefined" || !navigator.clipboard || typeof ClipboardItem === "undefined") {
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+      return;
+    }
+    setCopyStatus("copying");
+    setSelection(null);
+    setIsStylePopoverOpen(false);
+    setCropImageId(null);
+    const prevZoom = canvasZoom;
+    setCanvasZoom(1);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    try {
+      const width = nodeToCapture.offsetWidth;
+      const height = nodeToCapture.offsetHeight;
+      const blob = await htmlToImage.toBlob(nodeToCapture, {
+        cacheBust: true,
+        pixelRatio: 4,
+        quality: 1.0,
+        width,
+        height,
+        style: { transform: "none" },
+      });
+      if (!blob) throw new Error("Failed to generate blob");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err);
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2000);
+    } finally {
+      setCanvasZoom(prevZoom);
+    }
+  }, [activeImageIndex, getCanvasKeyForImageIndex, canvasZoom]);
 
   const backgroundValue = gradientToString(gradient);
 
@@ -1295,7 +1814,9 @@ export default function ImageGenerator() {
             ? allShapes[selection.canvasKey]?.find((s) => s.id === selection.itemId) || null
             : selection.type === "redact"
               ? allRedactions[selection.canvasKey]?.find((r) => r.id === selection.itemId) || null
-              : null
+              : selection.type === "brush"
+                ? allBrushes[selection.canvasKey]?.find((b) => b.id === selection.itemId) || null
+                : null
     : null;
 
   const hasTextOnCanvas = Object.values(allTexts).some((texts) => Array.isArray(texts) && texts.length > 0);
@@ -1330,7 +1851,7 @@ export default function ImageGenerator() {
           setBackgroundEffects={setBackgroundEffects}
           textEffects={textEffects}
           setTextEffects={setTextEffects}
-          imageSettings={imageSettings}
+          imageSettings={{ ...imageSettings, scale: activeImageIndex !== null ? (uploadedImages[activeImageIndex]?.scale ?? imageSettings.scale) : imageSettings.scale }}
           setImageSettings={setImageSettings}
           uploadedImages={uploadedImages}
           activeImageIndex={activeImageIndex}
@@ -1341,6 +1862,12 @@ export default function ImageGenerator() {
           generateNewGradient={generateNewGradient}
           onDownloadSingle={handleDownloadSingle}
           onDownloadZip={handleDownloadZip}
+          onCopyToClipboard={handleCopyToClipboard}
+          copyStatus={copyStatus}
+          exportFormat={exportFormat}
+          setExportFormat={setExportFormat}
+          exportQuality={exportQuality}
+          setExportQuality={setExportQuality}
           isDownloading={isDownloading}
           isDevMode={isDevMode}
           setIsDevMode={setIsDevMode}
@@ -1386,22 +1913,115 @@ export default function ImageGenerator() {
           }}
         />
       </aside>
-      <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-black/50 relative order-1 lg:order-2 overflow-hidden">
+      <main
+        ref={mainRef}
+        className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-black/50 relative order-1 lg:order-2 overflow-hidden"
+        onDragEnter={(e) => {
+          if (drawingMode) return;
+          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          dragCounterRef.current += 1;
+          setIsDraggingFile(true);
+        }}
+        onDragLeave={(e) => {
+          if (drawingMode) return;
+          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          dragCounterRef.current -= 1;
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0;
+            setIsDraggingFile(false);
+          }
+        }}
+        onDragOver={(e) => {
+          if (drawingMode) return;
+          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={(e) => {
+          if (drawingMode) return;
+          if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+          e.preventDefault();
+          dragCounterRef.current = 0;
+          setIsDraggingFile(false);
+          const files = Array.from(e.dataTransfer.files);
+          if (files.length > 0) addImageFiles(files);
+        }}
+      >
+        {isDraggingFile && (
+          <div className="absolute inset-4 md:inset-8 z-40 pointer-events-none rounded-2xl border-2 border-dashed border-blue-400 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-blue-100">
+              <Upload className="w-10 h-10" />
+              <div className="text-lg font-semibold">Drop images to add</div>
+              <div className="text-sm text-blue-200/80">PNG, JPEG, WebP</div>
+            </div>
+          </div>
+        )}
         <div
-          className="w-full h-full overflow-auto flex"
+          ref={scrollContainerRef}
+          className={`w-full h-full overflow-auto flex flex-col items-center justify-start ${isPanning ? 'cursor-grabbing' : canvasZoom > 1 ? 'cursor-grab' : ''}`}
           onClick={() => {
             setSelection(null);
             setIsStylePopoverOpen(false);
           }}
+          onPointerDown={(e) => {
+            // Hold-and-drag with primary button on empty space to pan.
+            // Only activate when the press lands on the scroll container itself or its
+            // immediate spacer (not on an image / annotation, which has stopPropagation).
+            const target = e.target as HTMLElement;
+            if (e.button !== 0) return;
+            if (!scrollContainerRef.current) return;
+            // Don't intercept if user is in a drawing mode or pressing on an interactive element.
+            if (drawingMode) return;
+            // Only pan when zoomed in beyond fit.
+            if (canvasZoom <= 1) return;
+            // Don't start panning if click is on an image / annotation that handles its own drag.
+            if (target.closest('[data-canvas-content]') && target !== scrollContainerRef.current) return;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startScrollLeft = scrollContainerRef.current.scrollLeft;
+            const startScrollTop = scrollContainerRef.current.scrollTop;
+            let didMove = false;
+            setIsPanning(true);
+            const onMove = (ev: PointerEvent) => {
+              const dx = ev.clientX - startX;
+              const dy = ev.clientY - startY;
+              if (!didMove && Math.hypot(dx, dy) > 3) didMove = true;
+              if (didMove && scrollContainerRef.current) {
+                scrollContainerRef.current.scrollLeft = startScrollLeft - dx;
+                scrollContainerRef.current.scrollTop = startScrollTop - dy;
+              }
+            };
+            const onUp = () => {
+              document.removeEventListener('pointermove', onMove);
+              document.removeEventListener('pointerup', onUp);
+              setIsPanning(false);
+            };
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+          }}
         >
-          <div className="m-auto transition-transform duration-200 ease-in-out" style={{ transform: `scale(${canvasZoom})`, transformOrigin: "center" }}>
+          <div
+            className="flex-shrink-0 flex items-center justify-center"
+            style={{
+              minWidth: '100%',
+              minHeight: '100%',
+              // When zoomed in, grow the layout box so the scroll container shows scrollbars.
+              width: zoomContentSize ? `${Math.max(zoomContentSize.w * canvasZoom, 0)}px` : '100%',
+              height: zoomContentSize ? `${Math.max(zoomContentSize.h * canvasZoom, 0)}px` : '100%',
+            }}
+          >
+          <div
+            ref={zoomContentRef}
+            className="w-full"
+            style={{
+              transform: `scale(${canvasZoom})`,
+              transformOrigin: "center center",
+              transition: "transform 0.15s ease-out",
+            }}
+          >
             {(() => {
-              const getChunkSize = () => {
-                if (!imageSettings.mockup) return 1;
-                if (imageSettings.mockupLayout === 'grid-3') return 3;
-                if (imageSettings.mockupLayout === 'grid-2') return 2;
-                return 1;
-              };
               const chunkSize = getChunkSize();
               const chunks = [];
               for (let i = 0; i < uploadedImages.length; i += chunkSize) {
@@ -1412,7 +2032,7 @@ export default function ImageGenerator() {
 
               if (chunks.length > 0) {
                 return (
-                  <div className={chunks.length > 1 ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 p-4 w-[90vw]" : "p-4 w-[min(80vh,90vw,1200px)]"}>
+                  <div className={chunks.length > 1 ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 w-full" : "p-4 mx-auto w-[min(80vh,90%,1200px)]"}>
                     {chunks.map((chunk, index) => (
                       <div key={chunk[0].id} className="w-full" onClick={(e) => e.stopPropagation()}>
                         <ImagePreview
@@ -1435,6 +2055,7 @@ export default function ImageGenerator() {
                           imageSettings={imageSettings}
                           texts={allTexts[index] || []}
                           arrows={allArrows[index] || []}
+                          arrowDefaults={arrowDefaults}
                           counters={allCounters[index] || []}
                           redactions={allRedactions[index] || []}
                           shapes={allShapes[index] || []}
@@ -1445,7 +2066,7 @@ export default function ImageGenerator() {
                           onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(index, id, props)}
                           onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(index, id, props)}
                           onArrowDelete={(id: string) => handleArrowDelete(index, id)}
-                          onCounterAdd={handleCounterAdd}
+                          onCounterAdd={(coords) => handleCounterAdd(index, coords)}
                           onCounterUpdate={(id, props) => handleCounterUpdate(index, id, props)}
                           onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(index, id, props)}
                           onCounterDelete={(id) => handleCounterDelete(index, id)}
@@ -1457,6 +2078,18 @@ export default function ImageGenerator() {
                           onShapeUpdate={(id, props) => handleShapeUpdate(index, id, props)}
                           onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(index, id, props)}
                           onShapeDelete={(id) => handleShapeDelete(index, id)}
+                          brushes={allBrushes[index] || []}
+                          brushDefaults={brushDefaults}
+                          onBrushAdd={(brush) => handleBrushAdd(index, brush)}
+                          onBrushDelete={(id) => handleBrushDelete(index, id)}
+                          onBeginInteractionHistory={pushToHistory}
+                          cropImageId={cropImageId}
+                          onCropApply={(crop) => {
+                            pushToHistory();
+                            setUploadedImages((prev) => prev.map((i) => i.id === cropImageId ? { ...i, crop } : i));
+                            setCropImageId(null);
+                          }}
+                          onCropCancel={() => setCropImageId(null)}
                           selection={selection}
                           onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
                           editing={editing}
@@ -1492,6 +2125,7 @@ export default function ImageGenerator() {
                     drawingMode={drawingMode}
                     texts={allTexts[activeImageIndex ?? -1] || []}
                     arrows={allArrows[-1] || []}
+                    arrowDefaults={arrowDefaults}
                     counters={allCounters[-1] || []}
                     redactions={allRedactions[-1] || []}
                     shapes={allShapes[-1] || []}
@@ -1502,7 +2136,7 @@ export default function ImageGenerator() {
                     onArrowUpdate={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdate(-1, id, props)}
                     onArrowUpdateWithHistory={(id: string, props: Partial<Omit<ArrowObject, "id" | "type">>) => handleArrowUpdateWithHistory(-1, id, props)}
                     onArrowDelete={(id: string) => handleArrowDelete(-1, id)}
-                    onCounterAdd={handleCounterAdd}
+                    onCounterAdd={(coords) => handleCounterAdd(-1, coords)}
                     onCounterUpdate={(id, props) => handleCounterUpdate(-1, id, props)}
                     onCounterUpdateWithHistory={(id, props) => handleCounterUpdateWithHistory(-1, id, props)}
                     onCounterDelete={(id) => handleCounterDelete(-1, id)}
@@ -1514,6 +2148,18 @@ export default function ImageGenerator() {
                     onShapeUpdate={(id, props) => handleShapeUpdate(-1, id, props)}
                     onShapeUpdateWithHistory={(id, props) => handleShapeUpdateWithHistory(-1, id, props)}
                     onShapeDelete={(id) => handleShapeDelete(-1, id)}
+                    brushes={allBrushes[-1] || []}
+                    brushDefaults={brushDefaults}
+                    onBrushAdd={(brush) => handleBrushAdd(-1, brush)}
+                    onBrushDelete={(id) => handleBrushDelete(-1, id)}
+                    onBeginInteractionHistory={pushToHistory}
+                    cropImageId={cropImageId}
+                    onCropApply={(crop) => {
+                      pushToHistory();
+                      setUploadedImages((prev) => prev.map((i) => i.id === cropImageId ? { ...i, crop } : i));
+                      setCropImageId(null);
+                    }}
+                    onCropCancel={() => setCropImageId(null)}
                     selection={selection}
                     onSelectObject={(canvasKey: number, itemId: string | null, type: any) => (itemId ? setSelection({ canvasKey, itemId, type }) : setSelection(null))}
                     editing={editing}
@@ -1525,22 +2171,38 @@ export default function ImageGenerator() {
               );
             })()}
           </div>
+          </div>
         </div>
         <AnnotationToolbar
           onAddText={handleAddText}
-          onAddCounter={handleCounterAdd}
+          onAddCounter={() => handleCounterAdd()}
           onAddShape={handleShapeAdd}
           onAddRedact={handleRedactAdd}
           onUndo={handleUndo}
+          onRedo={handleRedo}
           onDeleteSelected={handleDeleteSelected}
           isObjectSelected={!!selectedObject}
+          isStyleableSelected={!!selectedObject && selection?.type !== "brush"}
           canUndo={history.length > 0}
+          canRedo={redoStack.length > 0}
           isStylePopoverOpen={isStylePopoverOpen}
           onToggleStylePopover={() => setIsStylePopoverOpen((p) => !p)}
           drawingMode={drawingMode}
           setDrawingMode={setDrawingMode}
+          arrowDefaults={arrowDefaults}
+          setArrowDefaults={setArrowDefaults}
+          brushDefaults={brushDefaults}
+          setBrushDefaults={setBrushDefaults}
+          counterDefaults={counterDefaults}
+          setCounterDefaults={setCounterDefaults}
+          onCrop={() => {
+            if (activeImageIndex !== null && uploadedImages[activeImageIndex]) {
+              setCropImageId(uploadedImages[activeImageIndex].id);
+            }
+          }}
+          canCrop={activeImageIndex !== null && !!uploadedImages[activeImageIndex]}
         >
-          {selectedObject && (
+          {selectedObject && selection?.type !== "brush" && (
             <StylePopover
               selectedObject={selectedObject}
               selectionType={selection!.type}
