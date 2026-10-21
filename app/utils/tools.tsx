@@ -1,4 +1,4 @@
-import { Palette, FileText, FileJson, GitCompare, Search, ShieldCheck, Binary, Link, Linkedin, FileCode, Replace, ListTree } from "lucide-react";
+import { Palette, FileText, FileJson, GitCompare, Search, ShieldCheck, ShieldAlert, Binary, Link, Linkedin, FileCode, Replace, ListTree } from "lucide-react";
 
 export const tools = [
   {
@@ -108,5 +108,12 @@ export const tools = [
     link: "/object-to-json",
     keywords: ["object to json converter", "convert object to json", "json converter", "python dict to json", "json to python dict", "php array to json", "json to php array", "ruby hash to json", "javascript object to json", "dict to json", "array to json"],
     icon: <Replace className="w-5 h-5" />,
+  },
+  {
+    title: "PHP2Shell Exposure Checker",
+    description: "Check if a website may be exposed to PHP2Shell (CVE-2026-109618 / CVE-2026-109619). Passive check of PHP version, platform and Cloudflare, with plain-language next steps.",
+    link: "/php2shell-exposure-checker",
+    keywords: ["php2shell", "php2shell checker", "CVE-2026-109618", "CVE-2026-109619", "php vulnerability", "php version checker", "wordpress security", "woocommerce security", "website security check", "php security"],
+    icon: <ShieldAlert className="w-5 h-5" />,
   },
 ];
