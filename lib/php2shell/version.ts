@@ -1,15 +1,8 @@
 /**
- * PHP version parsing and patch classification.
- *
- * Adapted from openai/php2shell-checker
- * (https://github.com/openai/php2shell-checker, skills/phpcheck-url/scripts/phpcheck.js),
- * licensed under the Apache License 2.0 - see ./LICENSE-php2shell-checker.
- *
- * Changes from the original: rewritten in TypeScript; the cutoffs live in
- * ./config.ts as first fixed releases; branches older than the oldest supported
- * branch are end-of-life whatever their patch number; a partial version such as
- * "7.4" is still classified when the branch alone decides it; and a pre-release
- * build of an already vulnerable patch is reported as vulnerable.
+ * PHP version parsing and patch classification against the rules in
+ * ./config.ts: below the first fixed patch is vulnerable, a branch older than
+ * the oldest supported one is end-of-life whatever its patch, and anything we
+ * can't place (a newer branch, a partial or pre-release version) is unknown.
  */
 import { PHP2SHELL_RULES } from "./config";
 
@@ -51,12 +44,31 @@ const FIXED_PATCH = new Map<string, number>(
 const OLDEST_SUPPORTED = parseBranch(PHP2SHELL_RULES.oldestSupportedBranch);
 
 const VERSION = /^(\d+)\.(\d+)(?:\.(\d+))?(.*)$/;
-// A development build of the next patch is not evidence of a stable fix.
-const PRERELEASE = /(?:^|[-+~.])(?:dev|alpha|beta|rc)/i;
 
-/** Every PHP version advertised in header text such as "Apache/2.4.62 (Unix) PHP/8.4.26". */
+const PRERELEASE_TAGS = ["dev", "alpha", "beta", "rc"];
+
+/** "RC1", "-rc2", "~beta1" or "-dev" after the patch number: a test build, not a release. */
+function isPrerelease(suffix: string): boolean {
+    return suffix
+        .toLowerCase()
+        .split(/[-+~.]/)
+        .some((part) => PRERELEASE_TAGS.some((tag) => part.startsWith(tag)));
+}
+
+/**
+ * Every PHP version advertised in header text, read as product/version tokens:
+ * "Apache/2.4.62 (Unix) PHP/8.4.26" gives ["8.4.26"], and so does "PHP 8.4.26".
+ */
 export function findPhpVersions(text: string): string[] {
-    return Array.from(text.matchAll(/\bPHP[ /]([^\s,;)]+)/gi), (match) => match[1]);
+    const tokens = text.split(/[\s,;()]+/).filter(Boolean);
+    const versions: string[] = [];
+    tokens.forEach((token, index) => {
+        const [product, version] = token.split("/");
+        if (product.toLowerCase() !== "php") return;
+        if (version) versions.push(version);
+        else if (/^\d/.test(tokens[index + 1] ?? "")) versions.push(tokens[index + 1]);
+    });
+    return versions;
 }
 
 export function assessPhpVersion(version: string): VersionAssessment {
@@ -76,7 +88,7 @@ export function assessPhpVersion(version: string): VersionAssessment {
     const branch = `${current.major}.${current.minor}`;
     const patch = match[3] === undefined ? null : Number(match[3]);
     const suffix = match[4];
-    const prerelease = PRERELEASE.test(suffix);
+    const prerelease = isPrerelease(suffix);
     const vendorSuffix = /^[-+~]/.test(suffix);
     const known = { ...unread, branch, prerelease, distroBuild: vendorSuffix && !prerelease, note: null };
 
