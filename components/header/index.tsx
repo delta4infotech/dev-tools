@@ -112,7 +112,8 @@ function useIsToolPage() {
     'json-to-python-dict',
     'php-array-to-json',
     'json-to-php-array',
-    'json-viewer'
+    'json-viewer',
+    'php2shell-exposure-checker'
   ];
 
   return toolPages.some(tool => pathname.includes(tool));
