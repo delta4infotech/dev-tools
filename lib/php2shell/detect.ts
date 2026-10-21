@@ -17,23 +17,56 @@ export interface PageEvidence {
     kind: "page" | "redirect" | "wp-json";
 }
 
-export type PlatformId = "woocommerce" | "wordpress" | "magento" | "drupal" | "joomla" | "laravel" | "php";
-
-/** Most specific first: this order decides which platform a site is shown as. */
-const PLATFORM_ORDER: PlatformId[] = ["woocommerce", "wordpress", "magento", "drupal", "joomla", "laravel", "php"];
+export type PlatformId =
+    | "woocommerce"
+    | "magento"
+    | "prestashop"
+    | "opencart"
+    | "wordpress"
+    | "drupal"
+    | "joomla"
+    | "typo3"
+    | "craft"
+    | "concrete"
+    | "mediawiki"
+    | "moodle"
+    | "grav"
+    | "kirby"
+    | "processwire"
+    | "october"
+    | "laravel"
+    | "php";
 
 export const PLATFORM_NAMES: Record<PlatformId, string> = {
     woocommerce: "WooCommerce (WordPress)",
-    wordpress: "WordPress",
     magento: "Magento",
+    prestashop: "PrestaShop",
+    opencart: "OpenCart",
+    wordpress: "WordPress",
     drupal: "Drupal",
     joomla: "Joomla",
+    typo3: "TYPO3",
+    craft: "Craft CMS",
+    concrete: "Concrete CMS",
+    mediawiki: "MediaWiki",
+    moodle: "Moodle",
+    grav: "Grav",
+    kirby: "Kirby",
+    processwire: "ProcessWire",
+    october: "October CMS (Laravel)",
     laravel: "Laravel",
     php: "PHP (custom or unrecognized app)",
 };
 
+/**
+ * Most specific first: this order decides which platform a site is shown as
+ * (WooCommerce before WordPress, October CMS before the Laravel it runs on,
+ * any named platform before plain PHP).
+ */
+const PLATFORM_ORDER = Object.keys(PLATFORM_NAMES) as PlatformId[];
+
 /** Online stores: a break-in exposes customer accounts and checkout. */
-export const STORE_PLATFORMS: PlatformId[] = ["woocommerce", "magento"];
+export const STORE_PLATFORMS: PlatformId[] = ["woocommerce", "magento", "prestashop", "opencart"];
 
 export interface Detection {
     /** Every platform with at least one signal, most specific first. */
@@ -105,6 +138,22 @@ const SIGNALS: Signal[] = [
     { platform: "woocommerce", reason: "Sets WooCommerce cookies", test: (p) => hasCookie(p, /^(?:woocommerce_|wp_woocommerce_session_)/) },
     { platform: "woocommerce", reason: "REST API lists WooCommerce endpoints (/wp-json/wc/)", test: (p) => restNamespaces(p).some((ns) => ns.startsWith("wc/")) },
 
+    // Magento
+    { platform: "magento", reason: "Sends Magento headers", test: (p) => Object.keys(p.headers).some((name) => name.startsWith("x-magento-")) },
+    { platform: "magento", reason: "Page includes Magento scripts", test: (p) => /\/static\/(?:version\d+\/)?frontend\/\w+\/\w+\/[a-z]{2}_[A-Z]{2}\/|text\/x-magento-init|\bMagento_[A-Z]/.test(html(p)) },
+    { platform: "magento", reason: "Page includes Magento 1 assets", test: (p) => /\/skin\/frontend\/|\bMage\.Cookies\b/.test(html(p)) },
+    { platform: "magento", reason: "Sets Magento cookies", test: (p) => hasCookie(p, /^(?:X-Magento-Vary|mage-cache-sessid|mage-cache-storage|mage-messages)$/i) },
+
+    // PrestaShop
+    { platform: "prestashop", reason: "Generator tag says PrestaShop", test: (p) => generatedBy(p, /^PrestaShop\b/i) },
+    { platform: "prestashop", reason: "Page includes PrestaShop scripts", test: (p) => /\bvar prestashop\s*=|\/modules\/ps_[a-z_]+\//.test(html(p)) },
+    { platform: "prestashop", reason: "Sets a PrestaShop cookie", test: (p) => hasCookie(p, /^PrestaShop-[0-9a-f]{32}$/) },
+
+    // OpenCart
+    { platform: "opencart", reason: "Links use OpenCart routes (index.php?route=)", test: (p) => /index\.php\?route=(?:common|product|account|checkout)\//.test(html(p)) },
+    { platform: "opencart", reason: "Loads OpenCart theme files", test: (p) => html(p).includes("catalog/view/theme/") },
+    { platform: "opencart", reason: "Sets an OpenCart session cookie", test: (p) => hasCookie(p, /^OCSESSID$/) },
+
     // WordPress
     { platform: "wordpress", reason: "Generator tag says WordPress", test: (p) => generatedBy(p, /^WordPress\b/i) },
     { platform: "wordpress", reason: "Loads files from /wp-content/ or /wp-includes/", test: (p) => /\/wp-(?:content|includes)\//.test(html(p)) },
@@ -113,18 +162,15 @@ const SIGNALS: Signal[] = [
     { platform: "wordpress", reason: "Advertises WordPress XML-RPC (xmlrpc.php)", test: (p) => header(p, "x-pingback").includes("xmlrpc.php") },
     { platform: "wordpress", reason: "Sets WordPress cookies", test: (p) => hasCookie(p, /^(?:wordpress_|wp-settings-)/) },
     { platform: "wordpress", reason: "REST API at /wp-json/ answers like WordPress", test: (p) => restNamespaces(p).includes("wp/v2") },
-
-    // Magento
-    { platform: "magento", reason: "Sends Magento headers", test: (p) => Object.keys(p.headers).some((name) => name.startsWith("x-magento-")) },
-    { platform: "magento", reason: "Page includes Magento scripts", test: (p) => /\/static\/version\d+\/frontend\/|text\/x-magento-init|\bMagento_[A-Z]/.test(html(p)) },
-    { platform: "magento", reason: "Page includes Magento 1 assets", test: (p) => /\/skin\/frontend\/|\bMage\.Cookies\b/.test(html(p)) },
-    { platform: "magento", reason: "Sets Magento cookies", test: (p) => hasCookie(p, /^(?:X-Magento-Vary|mage-cache-sessid|mage-cache-storage|mage-messages)$/i) },
+    { platform: "wordpress", reason: "Hosted on a WordPress-only host", test: (p) => /WordPress|WP Engine/i.test(header(p, "x-powered-by")) || Boolean(header(p, "x-kinsta-cache")) },
 
     // Drupal
     { platform: "drupal", reason: "Generator tag says Drupal", test: (p) => generatedBy(p, /^Drupal\b/i) },
+    { platform: "drupal", reason: "Generator tag says Backdrop CMS (a Drupal fork)", test: (p) => generatedBy(p, /^Backdrop CMS\b/i) },
     { platform: "drupal", reason: "Sends Drupal cache headers", test: (p) => Boolean(header(p, "x-drupal-cache") || header(p, "x-drupal-dynamic-cache")) },
-    { platform: "drupal", reason: "Page includes Drupal scripts", test: (p) => /data-drupal-selector|drupal-settings-json|\/core\/misc\/drupal\.js|\bDrupal\.settings\b/.test(html(p)) },
-    { platform: "drupal", reason: "Loads files from /sites/default/files/", test: (p) => html(p).includes("/sites/default/files/") },
+    { platform: "drupal", reason: "Hosted on Acquia (a Drupal host)", test: (p) => Boolean(header(p, "x-ah-environment")) },
+    { platform: "drupal", reason: "Page includes Drupal scripts", test: (p) => /data-drupal-selector|drupal-settings-json|\/(?:core\/)?misc\/drupal\.js|\bDrupal\.settings\b/.test(html(p)) },
+    { platform: "drupal", reason: "Loads files from Drupal's /sites/ folders", test: (p) => /\/sites\/default\/files\/|\/sites\/all\/(?:themes|modules|libraries)\//.test(html(p)) },
     { platform: "drupal", reason: "Sets a Drupal session cookie", test: (p) => hasCookie(p, /^S?SESS[0-9a-f]{32}$/) },
 
     // Joomla
@@ -133,15 +179,58 @@ const SIGNALS: Signal[] = [
     { platform: "joomla", reason: "Page includes Joomla script options", test: (p) => html(p).includes("joomla-script-options") },
     { platform: "joomla", reason: "Links to Joomla components (com_...)", test: (p) => /[?&]option=com_|\/components\/com_/.test(html(p)) },
 
+    // TYPO3
+    { platform: "typo3", reason: "Generator tag says TYPO3", test: (p) => generatedBy(p, /^TYPO3\b/i) },
+    { platform: "typo3", reason: "Loads TYPO3 files", test: (p) => /\/typo3(?:conf|temp)\/|\/_assets\/[0-9a-f]{32}\//.test(html(p)) },
+    { platform: "typo3", reason: "Sets a TYPO3 session cookie", test: (p) => hasCookie(p, /^fe_typo_user$/) },
+
+    // Craft CMS
+    { platform: "craft", reason: "X-Powered-By header says Craft CMS", test: (p) => /Craft CMS/i.test(header(p, "x-powered-by")) },
+    { platform: "craft", reason: "Uses SEOmatic, a Craft-only plugin", test: (p) => generatedBy(p, /^SEOmatic\b/i) },
+    { platform: "craft", reason: "Loads Craft control-panel resources (/cpresources/)", test: (p) => html(p).includes("/cpresources/") },
+    { platform: "craft", reason: "Sets Craft cookies", test: (p) => hasCookie(p, /^(?:CraftSessionId|CRAFT_CSRF_TOKEN)$/) },
+
+    // Concrete CMS
+    { platform: "concrete", reason: "Generator tag says Concrete CMS", test: (p) => generatedBy(p, /^(?:Concrete CMS|concrete5)\b/i) },
+    { platform: "concrete", reason: "Loads Concrete CMS files", test: (p) => /\/concrete\/(?:js|css|images)\//.test(html(p)) },
+    { platform: "concrete", reason: "Sets a Concrete CMS session cookie", test: (p) => hasCookie(p, /^CONCRETE5$/) },
+
+    // MediaWiki
+    { platform: "mediawiki", reason: "Generator tag says MediaWiki", test: (p) => generatedBy(p, /^MediaWiki\b/i) },
+    { platform: "mediawiki", reason: "Loads MediaWiki's ResourceLoader (load.php)", test: (p) => /\/load\.php\?[^"']*\bmodules=/.test(html(p)) },
+
+    // Moodle
+    { platform: "moodle", reason: "Sets a Moodle session cookie", test: (p) => hasCookie(p, /^MoodleSession/) },
+    { platform: "moodle", reason: "Page includes Moodle scripts", test: (p) => /\bM\.cfg\s*=|\/theme\/yui_combo\.php|\/lib\/javascript\.php\//.test(html(p)) },
+
+    // Grav
+    { platform: "grav", reason: "Generator tag says Grav", test: (p) => generatedBy(p, /^GravCMS\b/i) },
+    { platform: "grav", reason: "Sets a Grav session cookie", test: (p) => hasCookie(p, /^grav-site-/) },
+    { platform: "grav", reason: "Loads Grav theme files (/user/themes/)", test: (p) => html(p).includes("/user/themes/") },
+
+    // Kirby
+    { platform: "kirby", reason: "Serves Kirby media files (/media/pages/)", test: (p) => /\/media\/pages\/[^"'\s]*\/[0-9a-f]{10}-\d{9,}\//.test(html(p)) },
+    { platform: "kirby", reason: "Sets a Kirby session cookie", test: (p) => hasCookie(p, /^kirby_session$/) },
+
+    // ProcessWire
+    { platform: "processwire", reason: "X-Powered-By header says ProcessWire", test: (p) => /ProcessWire/i.test(header(p, "x-powered-by")) },
+    { platform: "processwire", reason: "Loads ProcessWire site files", test: (p) => /\/site\/(?:templates|assets\/files)\//.test(html(p)) },
+
+    // October CMS
+    { platform: "october", reason: "Uses October CMS's asset combiner (/combine/)", test: (p) => /\/combine\/[0-9a-f]{32}-\d+/.test(html(p)) },
+    { platform: "october", reason: "Loads October CMS system files", test: (p) => html(p).includes("/modules/system/assets/") },
+
     // Laravel
     { platform: "laravel", reason: "Sets a Laravel session cookie", test: (p) => hasCookie(p, /^laravel_session$/) },
     { platform: "laravel", reason: "Sets Laravel-style XSRF-TOKEN and session cookies", test: (p) => hasCookie(p, /^XSRF-TOKEN$/) && hasCookie(p, /_session$/) },
-    { platform: "laravel", reason: "Loads Laravel Livewire", test: (p) => /\/livewire\/livewire(?:\.min)?\.js|\/vendor\/livewire\//.test(html(p)) },
+    { platform: "laravel", reason: "Uses Laravel Livewire", test: (p) => /\/livewire\/livewire(?:\.min)?\.js|\/vendor\/livewire\/|--livewire-progress-bar-color|\bwire:(?:snapshot|id)=/.test(html(p)) },
+    { platform: "laravel", reason: "Loads Statamic (a Laravel CMS)", test: (p) => html(p).includes("/vendor/statamic/") },
 
     // PHP without a recognized platform
     { platform: "php", reason: "X-Powered-By header mentions PHP", test: (p) => /\bPHP\b/i.test(header(p, "x-powered-by")) },
     { platform: "php", reason: "Server header mentions PHP", test: (p) => /\bPHP\//i.test(header(p, "server")) },
     { platform: "php", reason: "Sets a PHPSESSID session cookie", test: (p) => hasCookie(p, /^PHPSESSID$/i) },
+    { platform: "php", reason: "Hosted on Pantheon (a PHP host)", test: (p) => Object.keys(p.headers).some((name) => name.startsWith("x-pantheon-")) },
     { platform: "php", reason: "Links to .php pages on this site", test: linksToPhpPages },
 ];
 
@@ -174,6 +263,8 @@ const CHALLENGE_SCRIPT = /challenge-platform|cf-chl-|awswaf/i;
 function isChallenge(page: PageEvidence): boolean {
     if (CHALLENGE_HEADERS.some(([name, value]) => value.test(header(page, name)))) return true;
     if (CHALLENGE_PAGE.test(page.body)) return true;
+    // Imperva/Incapsula loads its script on real pages too; on a near-empty page it is the challenge.
+    if (page.body.length < 5_000 && page.body.includes("/_Incapsula_Resource")) return true;
     return page.status >= 400 && CHALLENGE_SCRIPT.test(page.body);
 }
 

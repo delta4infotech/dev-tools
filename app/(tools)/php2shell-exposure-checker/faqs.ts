@@ -39,7 +39,7 @@ export const faqs: FAQProps[] = [
         id: "6",
         title: "Why are online stores marked as higher risk?",
         content:
-            "Stores built on WooCommerce or Magento handle customer accounts, addresses and checkout. A break-in there costs more and is a bigger target, so it's worth fixing first.",
+            "Stores built on WooCommerce, Magento, PrestaShop or OpenCart handle customer accounts, addresses and checkout. A break-in there costs more and is a bigger target, so it's worth fixing first.",
     },
     {
         id: "7",
@@ -58,5 +58,11 @@ export const faqs: FAQProps[] = [
         title: "How often should I run this check?",
         content:
             "After any PHP update, and whenever a new PHP security release comes out. If your host updates PHP for you, a quick check confirms it has been done.",
+    },
+    {
+        id: "10",
+        title: "My site's front end isn't PHP, but the back end is. Is it covered?",
+        content:
+            "Only the address you enter is checked. If your public site is built with something like Next.js or Nuxt and gets its content from Drupal, WordPress or another PHP back end at a different address, enter that back-end address too, or check its PHP version directly.",
     },
 ];

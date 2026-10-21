@@ -310,8 +310,8 @@ function Explainer() {
                         exposed until you upgrade.
                     </li>
                     <li>
-                        Online stores on WooCommerce or Magento need extra attention, because they handle customer accounts
-                        and payments.
+                        Online stores on WooCommerce, Magento, PrestaShop or OpenCart need extra attention, because they
+                        handle customer accounts and payments.
                     </li>
                 </ul>
                 <p>
@@ -333,7 +333,8 @@ function Explainer() {
                     </li>
                     <li>
                         <strong className="text-foreground">Looks for signs of the platform:</strong> WordPress, WooCommerce,
-                        Drupal, Joomla, Magento, Laravel, or PHP in general.
+                        Drupal, Joomla, Magento, Laravel, PrestaShop, OpenCart, TYPO3, Craft CMS, MediaWiki, Moodle and other
+                        PHP software, or PHP in general.
                     </li>
                     <li>
                         <strong className="text-foreground">Checks for Cloudflare,</strong> which changes what the result means

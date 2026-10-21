@@ -80,6 +80,46 @@ const MANUAL_CHECKS = {
             "Look for \"PHP Version\".",
         ],
     },
+    prestashop: {
+        title: "Find your PHP version in PrestaShop",
+        steps: [
+            "Log in to your PrestaShop back office.",
+            "Go to Advanced Parameters > Information.",
+            "Look for the PHP version under Server information.",
+        ],
+    },
+    typo3: {
+        title: "Find your PHP version in TYPO3",
+        steps: [
+            "Log in to the TYPO3 backend as an administrator.",
+            "Go to Admin Tools > Environment > Environment Overview.",
+            "Look for the PHP version.",
+        ],
+    },
+    craft: {
+        title: "Find your PHP version in Craft CMS",
+        steps: ["Log in to the Craft control panel.", "Go to Utilities > System Report.", "Look for the PHP version."],
+    },
+    mediawiki: {
+        title: "Find your PHP version in MediaWiki",
+        steps: ["Open the page Special:Version on your wiki.", "Look for PHP in the Installed software table."],
+    },
+    moodle: {
+        title: "Find your PHP version in Moodle",
+        steps: [
+            "Log in as a site administrator.",
+            "Go to Site administration > Server > PHP info.",
+            "The PHP version is shown at the top.",
+        ],
+    },
+    laravel: {
+        title: "Find your PHP version for your Laravel app",
+        steps: [
+            "If you have server access, run php artisan about in your project folder; it lists the PHP version.",
+            "Otherwise, ask your hosting provider which PHP version runs your site.",
+            "The command line can use a different PHP than your website. If in doubt, trust what your host says is serving the site.",
+        ],
+    },
     server: {
         title: "Find your PHP version on your server",
         steps: [
@@ -90,11 +130,23 @@ const MANUAL_CHECKS = {
     },
 } satisfies Record<string, ManualCheck>;
 
+/** Platforms whose admin screens show the PHP version; everything else gets the server steps. */
+const MANUAL_CHECK_FOR: Partial<Record<PlatformId, ManualCheck>> = {
+    wordpress: MANUAL_CHECKS.wordpress,
+    woocommerce: MANUAL_CHECKS.wordpress,
+    drupal: MANUAL_CHECKS.drupal,
+    joomla: MANUAL_CHECKS.joomla,
+    prestashop: MANUAL_CHECKS.prestashop,
+    typo3: MANUAL_CHECKS.typo3,
+    craft: MANUAL_CHECKS.craft,
+    mediawiki: MANUAL_CHECKS.mediawiki,
+    moodle: MANUAL_CHECKS.moodle,
+    laravel: MANUAL_CHECKS.laravel,
+    october: MANUAL_CHECKS.laravel,
+};
+
 function manualCheckFor(platform: PlatformId | null): ManualCheck {
-    if (platform === "wordpress" || platform === "woocommerce") return MANUAL_CHECKS.wordpress;
-    if (platform === "drupal") return MANUAL_CHECKS.drupal;
-    if (platform === "joomla") return MANUAL_CHECKS.joomla;
-    return MANUAL_CHECKS.server;
+    return (platform && MANUAL_CHECK_FOR[platform]) || MANUAL_CHECKS.server;
 }
 
 const STORE_URGENT = "This is an online store, so treat this as urgent: customer accounts and checkout are at stake.";
@@ -279,7 +331,7 @@ export function buildResult(evidence: ScanEvidence, now = new Date()): CheckResu
         summary: `We found no sign of PHP on this site. ${PHP2SHELL_RULES.name} only affects sites that run PHP.`,
         nextSteps: [
             "Nothing to do for this issue if your site doesn't use PHP.",
-            "Not sure? If your site has a PHP backend or a custom PHP app, run php -v on the server or ask your host.",
+            "Not sure? Custom sites built on PHP frameworks such as Symfony or CodeIgniter often leave no outside trace. If your site or its back end runs PHP, run php -v on the server or ask your host.",
         ],
         manualCheck: null,
     };

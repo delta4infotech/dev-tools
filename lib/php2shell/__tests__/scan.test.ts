@@ -221,6 +221,47 @@ describe("PHP site with the version hidden", () => {
     });
 });
 
+describe("other PHP platforms with the version hidden", () => {
+    // [platform, what the site serves, expected id, store?, a phrase from the manual steps]
+    const platforms: [string, Reply, string, boolean, string][] = [
+        ["PrestaShop", { body: html("", `<script>var prestashop = {"cart":{}};</script>`) }, "prestashop", true, "Advanced Parameters > Information"],
+        ["PrestaShop (cookie)", { headers: { "Set-Cookie": "PrestaShop-0123456789abcdef0123456789abcdef=x; path=/" }, body: html("") }, "prestashop", true, "Advanced Parameters"],
+        ["OpenCart", { headers: { "Set-Cookie": "OCSESSID=abc; path=/" }, body: html("", `<a href="/index.php?route=product/category&path=20">Shop</a>`) }, "opencart", true, "php -v"],
+        ["TYPO3", { body: html(`<meta name="generator" content="TYPO3 CMS">`) }, "typo3", false, "Environment Overview"],
+        ["Craft CMS (header)", { headers: { "X-Powered-By": "Craft CMS" }, body: html("") }, "craft", false, "Utilities > System Report"],
+        ["Craft CMS (SEOmatic)", { body: html(`<meta name="generator" content="SEOmatic">`) }, "craft", false, "System Report"],
+        ["Concrete CMS", { body: html(`<meta name="generator" content="Concrete CMS"/>`) }, "concrete", false, "php -v"],
+        ["MediaWiki", { body: html(`<meta name="generator" content="MediaWiki 1.43.0">`) }, "mediawiki", false, "Special:Version"],
+        ["Moodle", { headers: { "Set-Cookie": "MoodleSession=abc; path=/" }, body: html("") }, "moodle", false, "Server > PHP info"],
+        ["Grav", { body: html(`<meta name="generator" content="GravCMS" />`) }, "grav", false, "php -v"],
+        ["Kirby", { body: html(`<img src="/media/pages/home/ce9722132a-1717846665/hero.jpg">`) }, "kirby", false, "php -v"],
+        ["ProcessWire", { headers: { "X-Powered-By": "ProcessWire CMS, ProCache" }, body: html("") }, "processwire", false, "php -v"],
+        ["October CMS", { body: html(`<link href="/combine/0e0070571ed9a39a111c968faa4ec483-1687824365" rel="stylesheet">`) }, "october", false, "php artisan about"],
+        ["Laravel with Livewire v3", { body: html(`<style>:root {--livewire-progress-bar-color: #2299dd;}</style>`) }, "laravel", false, "php artisan about"],
+        ["Statamic", { body: html(`<script src="/vendor/statamic/frontend/js/helpers.js"></script>`) }, "laravel", false, "php artisan about"],
+        ["Drupal 7", { body: html(`<script src="/misc/drupal.js?v=7.101"></script><link href="/sites/all/themes/zen/style.css">`) }, "drupal", false, "Reports > Status report"],
+        ["Backdrop CMS", { body: html(`<meta name="generator" content="Backdrop CMS 1 (https://backdropcms.org)">`) }, "drupal", false, "Status report"],
+        ["Drupal on Acquia", { headers: { "X-AH-Environment": "prod" }, body: html("") }, "drupal", false, "Status report"],
+        ["WordPress VIP", { headers: { "X-Powered-By": "WordPress VIP <https://wpvip.com>" }, body: html("") }, "wordpress", false, "Site Health"],
+        ["Magento 2 without static signing", { body: html(`<script src="/static/frontend/Magento/luma/en_US/requirejs/require.js"></script>`) }, "magento", true, "php -v"],
+    ];
+
+    it.each(platforms)("%s: can't confirm, with the right steps", async (_, reply, id, store, step) => {
+        const site = await mockSite({ "/": reply, "/wp-json/": json(REST_INDEX(["wp/v2"])) });
+        const result = await checkSite(site.url, LOCAL);
+
+        expect(result).toMatchObject({ verdict: "unknown", php: { detected: true }, platform: { id }, store });
+        expect(result.manualCheck?.steps.join(" ")).toContain(step);
+    });
+
+    it("shows a known platform's own version verdict as usual", async () => {
+        const site = await mockSite({
+            "/": { headers: { "X-Powered-By": "PHP/8.2.30", "Set-Cookie": "PrestaShop-0123456789abcdef0123456789abcdef=x" }, body: html("") },
+        });
+        expect(await checkSite(site.url, LOCAL)).toMatchObject({ verdict: "at-risk", platform: { id: "prestashop" }, store: true });
+    });
+});
+
 describe("no PHP", () => {
     it("a static site is likely not affected", async () => {
         const site = await mockSite({
@@ -292,6 +333,12 @@ describe("bot challenges served instead of the site", () => {
         ["AWS WAF challenge", { status: 202, headers: { "x-amzn-waf-action": "challenge" }, body: html("") }],
         ["Vercel challenge", { status: 429, headers: { "x-vercel-mitigated": "challenge" }, body: html("") }],
         ["DataDome block", { status: 403, body: html(`<script src="https://ct.captcha-delivery.com/c.js"></script>`) }],
+        [
+            "Imperva/Incapsula challenge (HTTP 200)",
+            {
+                body: `<html><head><META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW"><script src="/_Incapsula_Resource?SWJIYLWA=719d34d3"></script></head><body><iframe src="/_Incapsula_Resource?SWUDNSAI=31"></iframe></body></html>`,
+            },
+        ],
     ];
 
     it.each(challenges)("%s: can't confirm, never 'not affected'", async (_, reply) => {
